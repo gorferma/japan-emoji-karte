@@ -122,73 +122,17 @@ if (L.Control.geocoder) {
     .addTo(map);
 }
 
-// Marker-Layer nach Emoji-Kategorie sammeln, aber global clustern (kategorienunabhängig)
-const globalCluster = L.markerClusterGroup({
-  chunkedLoading: true,
-  chunkInterval: 150,
-  chunkDelay: 25,
-  removeOutsideVisibleBounds: false,
-  // Clustern nur bei sehr weitem Herauszoomen
-  maxClusterRadius: (z) => {
-    if (z <= 4) return 100;
-    if (z <= 5) return 80;
-    if (z <= 6) return 60;
-    if (z <= 7) return 40;
-    return 0; // ab 8 praktisch keine Clusterbildung mehr
-  },
-  disableClusteringAtZoom: 8,      // ab Zoom 8 Marker getrennt
-  showCoverageOnHover: false,
-  zoomToBoundsOnClick: false,
-  spiderfyOnEveryZoom: false,
-  spiderfyOnMaxZoom: true,
-  spiderfyDistanceMultiplier: 1.25,
-  iconCreateFunction: (cluster) => {
-    const count = cluster.getChildCount();
-    return L.divIcon({
-      className: 'emoji-cluster',
-      html: `<div class="inner"><span class="cnt">${count}</span></div>`,
-      iconSize: null
-    });
-  }
-});
-map.addLayer(globalCluster);
-
-// Marker-Container pro Emoji (für Legenden-Checkboxen)
-const emojiLayers = {}; // { '🗻': L.layerGroup (nur Container), ... }
-const presentEmojis = new Set();
-const emojiVisibility = new Map(); // Sichtbarkeitszustand pro Emoji (mobil/desktop synchron)
-function ensureEmojiLayer(emoji) {
-  if (!emojiLayers[emoji]) {
-    // Nur Container pro Kategorie, nicht direkt der Karte hinzufügen
-    emojiLayers[emoji] = L.layerGroup();
-  }
-  return emojiLayers[emoji];
-}
-function setEmojiVisibility(emoji, show) {
-  const group = emojiLayers[emoji];
-  if (!group) return;
-  const layers = [];
-  group.eachLayer((l) => layers.push(l));
-  if (show) {
-    globalCluster.addLayers(layers);
-  } else {
-    globalCluster.removeLayers(layers);
-  }
-  emojiVisibility.set(emoji, !!show);
-}
-
-// Emoji-Marker als DivIcon
+// ---- Emoji- und Kategorie-Logik ----
 function emojiIcon(emoji, label) {
   const safeLabel = (label || "").replace(/"/g, "&quot;");
   return L.divIcon({
-    className: "", // wir nutzen eigenes HTML
+    className: "",
     html: `<div class="emoji-marker" aria-label="${safeLabel}" title="${safeLabel}">${emoji}</div>`,
     iconSize: null,
     iconAnchor: [0, 16]
   });
 }
 
-// Emoji-Zuordnung nach Kategorie/Schlüsselwörtern
 const EMOJI_KEYWORDS = [
   { k: ['berg','vulkan','fuji','mt '], e: '🗻' },
   { k: ['schrein','jingu','shrine','toshogu','hachimangu','inari'], e: '⛩️' },
@@ -219,7 +163,6 @@ const EMOJI_KEYWORDS = [
   { k: ['altstadt','old town','bikan','takayama','kawagoe','kakunodate'], e: '🏘️' }
 ];
 
-// Anzeigenamen für Kategorien (für Legende) + Reihenfolge
 const CATEGORY_LABELS = {
   '🗻': 'Berg/Vulkan',
   '⛩️': 'Schrein',
@@ -244,7 +187,6 @@ const CATEGORY_LABELS = {
   '🥾': 'Pilgerweg/Wanderung',
   '🏘️': 'Altstadt/Tradition',
   '📍': 'Allgemein',
-  // Zusätzliche Emojis aus den Daten (vermeidet "Sonstiges" in der Legende)
   '❄️': 'Schneefestival',
   '🚤': 'Kanal/Boot',
   '🌻': 'Blumenfelder',
@@ -269,46 +211,21 @@ function getEmojiForAttraction(a) {
   for (const { k, e } of EMOJI_KEYWORDS) {
     if (k.some((kw) => hay.includes(kw))) return e;
   }
-  return '📍'; // Fallback
+  return '📍';
 }
 
 // ---- Links in Popups: Mapping + Helpers ----
-// Optional: Externes Mapping per <script> vor dieser Datei: window.attractionLinks = { 'Name': 'https://…' }
 const attractionLinks = (window.attractionLinks || {});
-
-function isValidHttpUrl(url) {
-  try {
-    const u = new URL(url);
-    return u.protocol === 'http:' || u.protocol === 'https:';
-  } catch {
-    return false;
-  }
-}
-function escHtml(str) {
-  return String(str ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
-function getAttractionUrl(a) {
-  // 1) Direkter Link am Datensatz
-  if (a.url && isValidHttpUrl(a.url)) return a.url;
-  // 2) Mapping über exakten Namen
-  const byName = attractionLinks[a.name];
-  if (byName && isValidHttpUrl(byName)) return byName;
-  return null;
-}
+function isValidHttpUrl(url) { try { const u = new URL(url); return u.protocol === 'http:' || u.protocol === 'https:'; } catch { return false; } }
+function escHtml(str) { return String(str ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
+function getAttractionUrl(a) { if (a.url && isValidHttpUrl(a.url)) return a.url; const byName = attractionLinks[a.name]; if (byName && isValidHttpUrl(byName)) return byName; return null; }
 function buildPopupContent(a) {
   const name = escHtml(a.name);
   const type = escHtml(a.type);
   const city = escHtml(a.city);
   const desc = escHtml(a.desc);
   const url = getAttractionUrl(a);
-  const nameHtml = url
-    ? `<a href="${escHtml(url)}" target="_blank" rel="noopener noreferrer">${name}</a>`
-    : name;
+  const nameHtml = url ? `<a href="${escHtml(url)}" target="_blank" rel="noopener noreferrer">${name}</a>` : name;
   return `
       <h3>${nameHtml}</h3>
       <p>${type} · ${city}</p>
@@ -316,38 +233,152 @@ function buildPopupContent(a) {
     `;
 }
 
-// Marker hinzufügen
-function addAttractionMarkers(list) {
-  list.forEach((a) => {
+// ---- Importance-basierte LOD-Logik (anstelle von Zahlen-Clustering) ----
+function computeImportance(a) {
+  let s = 10;
+  const t = (a.type || '').toLowerCase();
+  const boost = (v) => { s = Math.max(s, v); };
+  if (t.includes('unesco')) boost(90);
+  else if (t.includes('vulkan') || t.includes('berg')) boost(70);
+  else if (t.includes('burg') || t.includes('schloss')) boost(65);
+  else if (t.includes('tempel') || t.includes('schrein') || t.includes('pagode')) boost(60);
+  else if (t.includes('nationalpark') || t.includes('natur') || t.includes('see') || t.includes('schlucht')) boost(55);
+  else if (t.includes('garten') || t.includes('park')) boost(50);
+  else if (t.includes('viertel') || t.includes('altstadt')) boost(45);
+  else if (t.includes('museum') || t.includes('aquarium')) boost(40);
+  else if (t.includes('onsen')) boost(35);
+  const n = (a.name || '').toLowerCase();
+  if (n.includes('fuji')) s = Math.max(s, 95);
+  if (n.includes('skytree') || n.includes('tokyo tower')) s = Math.max(s, 80);
+  if (n.includes('miyajima') || n.includes('itsukushima')) s = Math.max(s, 85);
+  if (n.includes('himeji')) s = Math.max(s, 80);
+  if (n.includes('daibutsu') || n.includes('buddha')) s = Math.max(s, 70);
+  const ov = (window.attractionImportance && window.attractionImportance[a.name]);
+  if (typeof ov === 'number') s = ov;
+  return Math.max(0, Math.min(100, s));
+}
+function zoomScoreThreshold(z) {
+  if (z <= 4) return 90;
+  if (z <= 5) return 85;
+  if (z <= 6) return 80;
+  if (z <= 7) return 70;
+  if (z <= 8) return 60;
+  if (z <= 9) return 50;
+  if (z <= 10) return 35;
+  if (z <= 11) return 20;
+  return 0;
+}
+function cellSizeForZoom(z) {
+  if (z <= 4) return 140;
+  if (z <= 5) return 110;
+  if (z <= 6) return 90;
+  if (z <= 7) return 70;
+  if (z <= 8) return 54;
+  if (z <= 9) return 40;
+  if (z <= 10) return 30;
+  if (z <= 11) return 20;
+  return 0;
+}
+
+// Zustand für Emoji-Filter
+const presentEmojis = new Set();
+const emojiVisibility = new Map();
+let attractionsAug = [];
+let lodLayer = null;
+
+// Initialisiere Attraktions-Metadaten (Emoji + Score sammeln)
+function initAttractionsMeta(list) {
+  attractionsAug = list.map((a) => {
     const emj = getEmojiForAttraction(a);
-    const marker = L.marker([a.lat, a.lng], {
-      icon: emojiIcon(emj, a.name)
-    });
-    const popupHtml = buildPopupContent(a);
-    marker.bindPopup(popupHtml, { closeButton: true });
-    // Marker pro Emoji sammeln und dem globalen Cluster hinzufügen
     presentEmojis.add(emj);
-    ensureEmojiLayer(emj).addLayer(marker);
-    globalCluster.addLayer(marker);
+    return { ...a, emoji: emj, _score: computeImportance({ ...a, emoji: emj }) };
   });
-  // Initial alle sicht- und gespeichert setzen
+  // Standard: alle sichtbar
   presentEmojis.forEach(e => emojiVisibility.set(e, true));
 }
 
-addAttractionMarkers(attractions);
+class LODGridLayer {
+  constructor(map, data) {
+    this.map = map;
+    this.data = data;
+    this.layer = L.layerGroup();
+    this.pool = new Map(); // name -> marker
+    this._onUpdate = this.update.bind(this);
+    map.on('moveend zoomend resize', this._onUpdate);
+  }
+  addTo() { this.layer.addTo(this.map); this.update(); return this; }
+  remove() { this.map.off('moveend zoomend resize', this._onUpdate); this.layer.remove(); }
+  ensureMarker(a) {
+    if (this.pool.has(a.name)) return this.pool.get(a.name);
+    const m = L.marker([a.lat, a.lng], { icon: emojiIcon(a.emoji, a.name) });
+    m.bindPopup(buildPopupContent(a), { closeButton: true });
+    this.pool.set(a.name, m);
+    return m;
+  }
+  update() {
+    const z = this.map.getZoom();
+    const minScore = zoomScoreThreshold(z);
+    const cell = cellSizeForZoom(z);
+    const size = this.map.getSize();
+    const pad = 80;
+
+    // Helfer: Emoji-Filter prüfen
+    const emojiOn = (e) => (emojiVisibility.get(e) !== false);
+
+    if (cell === 0) {
+      const visible = new Set();
+      for (const a of this.data) {
+        if (a._score < minScore) continue;
+        if (!emojiOn(a.emoji)) continue;
+        const p = this.map.latLngToContainerPoint([a.lat, a.lng]);
+        if (p.x < -pad || p.y < -pad || p.x > size.x + pad || p.y > size.y + pad) continue;
+        const mk = this.ensureMarker(a);
+        if (!this.layer.hasLayer(mk)) this.layer.addLayer(mk);
+        visible.add(a.name);
+      }
+      for (const [name, mk] of this.pool) {
+        if (!visible.has(name) && this.layer.hasLayer(mk)) this.layer.removeLayer(mk);
+      }
+      return;
+    }
+
+    const bounds = this.map.getPixelBounds();
+    const min = bounds.min.subtract([pad, pad]);
+    const max = bounds.max.add([pad, pad]);
+    const chosen = new Map(); // key -> best attraction
+
+    for (const a of this.data) {
+      if (a._score < minScore) continue;
+      if (!emojiOn(a.emoji)) continue;
+      const pt = this.map.project([a.lat, a.lng], z);
+      if (pt.x < min.x || pt.y < min.y || pt.x > max.x || pt.y > max.y) continue;
+      const cx = Math.floor(pt.x / cell);
+      const cy = Math.floor(pt.y / cell);
+      const key = `${cx}:${cy}`;
+      const cur = chosen.get(key);
+      if (!cur || a._score > cur._score) chosen.set(key, a);
+    }
+
+    const keep = new Set();
+    for (const [, a] of chosen) {
+      const mk = this.ensureMarker(a);
+      if (!this.layer.hasLayer(mk)) this.layer.addLayer(mk);
+      keep.add(a.name);
+    }
+    for (const [name, mk] of this.pool) {
+      if (!keep.has(name) && this.layer.hasLayer(mk)) this.layer.removeLayer(mk);
+    }
+  }
+}
 
 // Maßstabsleiste (metrisch, deutsch-typisch)
 L.control.scale({ metric: true, imperial: false }).addTo(map);
-
-// Entferne die visuelle Maskierung außerhalb Japans
-// (vorheriges L.polygon mit world/japanRect wurde entfernt)
 
 // Legende (Desktop) – oben rechts; mobil verwenden wir ein Left-Drawer-Overlay
 function buildLegendOnAdd() {
   return function () {
     const div = L.DomUtil.create('div', 'legend-control leaflet-bar');
 
-    // Emoji-Liste dynamisch: bekannte Kategorien in definierter Reihenfolge, dann evtl. zusätzliche Emojis
     const ordered = CATEGORY_ORDER.filter((e) => presentEmojis.has(e));
     const extras = Array.from(presentEmojis).filter((e) => !CATEGORY_ORDER.includes(e)).sort();
     const emojiList = [...ordered, ...extras];
@@ -365,7 +396,6 @@ function buildLegendOnAdd() {
         </li>`;
     }).join('');
 
-    // Master-Checkbox Zustand berechnen
     const allOn = emojiList.every(e => emojiVisibility.get(e) !== false);
 
     div.innerHTML = `
@@ -380,32 +410,21 @@ function buildLegendOnAdd() {
         ${listItemsHtml}
       </ul>
     `;
-    // Interaktionen innerhalb der Legende sollen die Karte nicht bewegen
     L.DomEvent.disableClickPropagation(div);
     L.DomEvent.disableScrollPropagation(div);
 
-    // Einklappen/aufklappen per Klick oder Tastatur
     const header = div.querySelector('.legend-header');
     const list = div.querySelector('.legend-list');
-
-    // Initialzustand je nach Gerät: mobil zu, Desktop offen (hier Desktop => offen)
     list.style.display = '';
     header.setAttribute('aria-expanded', 'true');
-
     function toggle() {
       const isHidden = list.style.display === 'none';
       list.style.display = isHidden ? '' : 'none';
       header.setAttribute('aria-expanded', String(isHidden));
     }
     header.addEventListener('click', toggle);
-    header.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' || e.key === ' ') {
-        e.preventDefault();
-        toggle();
-      }
-    });
+    header.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); } });
 
-    // Checkbox-Interaktion
     const allCb = div.querySelector('input[data-legend-all]');
     const itemCbs = Array.from(div.querySelectorAll('input[data-emoji]'));
 
@@ -448,16 +467,17 @@ const isMobile = () => window.matchMedia('(max-width: 600px)').matches;
 
 // --- Mobile Overlay (Left Drawer) ---
 let mobileOverlayEl = null;
-let mobileFabEl = null;
+let mobileHandleEl = null;
+let edgeMoveHandler = null;
+let edgeUpHandler = null;
 
 function renderMobileOverlayContent(container) {
-  // Liste und Zustände zusammenstellen
   const ordered = CATEGORY_ORDER.filter((e) => presentEmojis.has(e));
   const extras = Array.from(presentEmojis).filter((e) => !CATEGORY_ORDER.includes(e)).sort();
   const emojiList = [...ordered, ...extras];
   const allOn = emojiList.every(e => emojiVisibility.get(e) !== false);
 
-  const listItemsHtml = emojiList.map((e, idx) => {
+  const listItemsHtml = emojiList.map((e) => {
     const label = CATEGORY_LABELS[e] || 'Sonstiges';
     const checkedAttr = (emojiVisibility.get(e) !== false) ? 'checked' : '';
     return `
@@ -507,22 +527,17 @@ function renderMobileOverlayContent(container) {
   function open() {
     overlay.classList.add('open');
     overlay.setAttribute('aria-hidden', 'false');
-    // No auto-focus on mobile drawer
   }
   function close() {
     overlay.classList.remove('open');
     overlay.setAttribute('aria-hidden', 'true');
   }
-
-  // Expose controls
   overlay.open = open;
   overlay.close = close;
 
   backdrop.addEventListener('click', close);
   btnClose.addEventListener('click', close);
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && overlay.classList.contains('open')) close();
-  });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && overlay.classList.contains('open')) close(); });
 
   function syncMaster() {
     const allOn = itemCbs.every((cb) => cb.checked);
@@ -549,7 +564,6 @@ function renderMobileOverlayContent(container) {
     });
   });
 
-  // Suche/Filter der Liste
   function filterList(q) {
     const term = q.trim().toLowerCase();
     Array.from(list.children).forEach((li) => {
@@ -563,49 +577,75 @@ function renderMobileOverlayContent(container) {
 }
 
 function initMobileUI() {
-  // FAB erstellen
-  mobileFabEl = document.createElement('button');
-  mobileFabEl.className = 'mobile-fab';
-  mobileFabEl.type = 'button';
-  mobileFabEl.title = 'Filter & Kategorien';
-  mobileFabEl.setAttribute('aria-label', 'Filter & Kategorien öffnen');
-  mobileFabEl.textContent = 'Filter';
-  document.body.appendChild(mobileFabEl);
-
-  // Overlay-Container
+  // Create overlay holder and overlay content
   const holder = document.createElement('div');
   holder.className = 'mobile-overlay-holder';
   document.body.appendChild(holder);
 
   mobileOverlayEl = renderMobileOverlayContent(holder);
 
-  mobileFabEl.addEventListener('click', () => {
-    if (mobileOverlayEl) mobileOverlayEl.open();
-  });
+  // Create left edge handle (three vertical lines)
+  mobileHandleEl = document.createElement('button');
+  mobileHandleEl.className = 'edge-handle';
+  mobileHandleEl.type = 'button';
+  mobileHandleEl.title = 'Filter & Kategorien';
+  mobileHandleEl.setAttribute('aria-label', 'Filter & Kategorien öffnen');
+  mobileHandleEl.innerHTML = '<span></span><span></span><span></span>';
+  document.body.appendChild(mobileHandleEl);
+
+  // Open on tap/click
+  mobileHandleEl.addEventListener('click', () => { if (mobileOverlayEl) mobileOverlayEl.open(); });
+
+  // Simple drag-to-open gesture
+  let dragging = false;
+  let startX = 0;
+  const onDown = (e) => {
+    dragging = true;
+    startX = (e.touches && e.touches[0] ? e.touches[0].clientX : e.clientX) || 0;
+  };
+  edgeMoveHandler = (e) => {
+    if (!dragging) return;
+    const x = (e.touches && e.touches[0] ? e.touches[0].clientX : e.clientX) || 0;
+    if (x - startX > 24) { // pulled to the right
+      dragging = false;
+      if (mobileOverlayEl) mobileOverlayEl.open();
+    }
+  };
+  edgeUpHandler = () => { dragging = false; };
+
+  mobileHandleEl.addEventListener('pointerdown', onDown, { passive: true });
+  window.addEventListener('pointermove', edgeMoveHandler, { passive: true });
+  window.addEventListener('pointerup', edgeUpHandler, { passive: true });
+  // Touch support
+  mobileHandleEl.addEventListener('touchstart', onDown, { passive: true });
+  window.addEventListener('touchmove', edgeMoveHandler, { passive: true });
+  window.addEventListener('touchend', edgeUpHandler, { passive: true });
 }
 
 function destroyMobileUI() {
-  if (mobileFabEl && mobileFabEl.parentNode) mobileFabEl.parentNode.removeChild(mobileFabEl);
+  if (mobileHandleEl) {
+    mobileHandleEl.remove();
+    mobileHandleEl = null;
+  }
+  if (edgeMoveHandler) {
+    window.removeEventListener('pointermove', edgeMoveHandler);
+    window.removeEventListener('touchmove', edgeMoveHandler);
+    edgeMoveHandler = null;
+  }
+  if (edgeUpHandler) {
+    window.removeEventListener('pointerup', edgeUpHandler);
+    window.removeEventListener('touchend', edgeUpHandler);
+    edgeUpHandler = null;
+  }
   if (mobileOverlayEl && mobileOverlayEl.parentNode && mobileOverlayEl.parentNode.parentNode) {
-    // remove holder
     mobileOverlayEl.parentNode.parentNode.removeChild(mobileOverlayEl.parentNode);
   }
-  mobileFabEl = null;
   mobileOverlayEl = null;
 }
 
-// Steuerung: je nach Gerät entweder Desktop-Legende oder Mobile-Overlay verwenden
 let legendControl = null;
-function initDesktopLegend() {
-  legendControl = createLegendControl('topright');
-  legendControl.addTo(map);
-}
-function destroyDesktopLegend() {
-  if (legendControl) {
-    map.removeControl(legendControl);
-    legendControl = null;
-  }
-}
+function initDesktopLegend() { legendControl = createLegendControl('topright'); legendControl.addTo(map); }
+function destroyDesktopLegend() { if (legendControl) { map.removeControl(legendControl); legendControl = null; } }
 
 function applyUiMode() {
   if (isMobile()) {
@@ -617,26 +657,23 @@ function applyUiMode() {
   }
 }
 
+// --- Start: Daten initialisieren und LOD-Layer aktivieren ---
+initAttractionsMeta(attractions);
+
 applyUiMode();
 let wasMobile = isMobile();
 window.addEventListener('resize', () => {
   const nowMobile = isMobile();
-  if (nowMobile !== wasMobile) {
-    applyUiMode();
-    wasMobile = nowMobile;
-  }
+  if (nowMobile !== wasMobile) { applyUiMode(); wasMobile = nowMobile; }
 });
 
-// Cluster-Klick: bei "relativ nah" spiderfy statt weiter stark zu zoomen
-globalCluster.on('clusterclick', (e) => {
-  const z = map.getZoom();
-  const n = e.layer.getChildCount();
+// Sichtbarkeit einer Emoji-Kategorie setzen -> LOD neu rendern
+function setEmojiVisibility(emoji, show) {
+  emojiVisibility.set(emoji, !!show);
+  if (lodLayer) lodLayer.update();
+}
 
-  // Wenn schon nah genug oder der Cluster klein ist -> spiderfy
-  if (z >= 10 || n <= 8) {
-    e.layer.spiderfy();
-    return;
-  }
-  // sonst sanft näher heran, nicht bis Maximum
-  map.flyTo(e.latlng, Math.min(z + 1, 12), { duration: 0.25 });
-});
+// LOD-Layer erstellen und der Karte hinzufügen
+lodLayer = new LODGridLayer(map, attractionsAug).addTo();
+
+// Hinweis: bisheriges Marker-Clustering wurde zugunsten des LOD-Renderers entfernt.

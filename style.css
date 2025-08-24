@@ -119,10 +119,16 @@ body[data-theme="light"] .leaflet-control-scale-line { background: rgba(255,255,
   .leaflet-control-zoom { display: none !important; }
 }
 
-/* Mobile Filter Trigger */
-.mobile-fab { position: fixed; right: 16px; bottom: 16px; z-index: 520; background: var(--primary); color: #001019; border: 1px solid var(--primary); border-radius: 999px; padding: 10px 14px; box-shadow: var(--shadow); cursor: pointer; font-weight: 600; }
-.mobile-fab:hover { background: var(--primary-600); border-color: var(--primary-600); }
-@media (min-width: 601px) { .mobile-fab { display: none; } }
+/* Remove old mobile FAB and add edge handle */
+.mobile-fab { display: none !important; }
+
+/* Edge handle (three vertical lines) */
+.edge-handle { position: fixed; left: 6px; top: 50%; transform: translateY(-50%); z-index: 520; background: transparent; border: none; padding: 8px 6px; border-radius: 10px; cursor: pointer; }
+.edge-handle:focus { outline: 2px solid var(--primary); outline-offset: 2px; }
+.edge-handle span { display: block; width: 4px; height: 18px; background: var(--text); margin: 3px 0; border-radius: 2px; opacity: 0.85; }
+body[data-theme="light"] .edge-handle span { background: #0f172a; }
+
+@media (min-width: 601px) { .edge-handle { display: none; } }
 
 /* Mobile Overlay (Left Drawer) */
 .mobile-overlay { position: fixed; inset: 0; z-index: 510; pointer-events: none; }
