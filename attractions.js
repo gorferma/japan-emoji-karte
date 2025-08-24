@@ -25,6 +25,7 @@ const attractions = [
   { name: "Aizu-Wakamatsu (Tsuruga-jo)", city: "Fukushima", type: "Burg", emoji: "🏯", lat: 37.4940, lng: 139.9290, desc: "Weiße Burg mit Geschichte des Boshin-Kriegs." },
   { name: "Sendai Zuihoden", city: "Sendai", type: "Mausoleum", emoji: "🏛️", lat: 38.2460, lng: 140.8660, desc: "Prächtiges Mausoleum von Date Masamune." },
   { name: "Aomori Nebuta Museum WA-RASSE", city: "Aomori", type: "Festival/Museum", emoji: "🎆", lat: 40.8280, lng: 140.7340, desc: "Leuchtende Festwagen der Nebuta-Matsuri." },
+  { name: "Tashirojima (Katzeninsel)", city: "Ishinomaki (Miyagi)", type: "Insel/Katzen", emoji: "🐈", lat: 38.2969, lng: 141.3919, desc: "Kleine Insel mit frei laufenden Katzen; Fähre ab Ishinomaki." },
 
   // Kanto (Tokio & Umgebung)
   { name: "Senso-ji (Asakusa)", city: "Tokyo", type: "Tempel", emoji: "🛕", lat: 35.7148, lng: 139.7967, desc: "Tokyos ältester Tempel mit Kaminari-mon." },
@@ -117,10 +118,12 @@ const attractions = [
   { name: "Kochi-jo (Burg)", city: "Kochi", type: "Burg", emoji: "🏯", lat: 33.5597, lng: 133.5311, desc: "Eine der wenigen originalen Burgen Japans." },
   { name: "Naruto-Strudel", city: "Naruto", type: "Meeresstrudel", emoji: "🌊", lat: 34.1708, lng: 134.6412, desc: "Spektakuläre Gezeitenstrudel in der Meerenge." },
   { name: "Shikoku 88-Tempel-Pilgerweg (Ryozenji)", city: "Tokushima", type: "Pilgerweg", emoji: "🥾", lat: 34.1308, lng: 134.5119, desc: "Starttempel des Henro-Pilgerwegs." },
+  { name: "Aoshima (Katzeninsel)", city: "Ozu (Ehime)", type: "Insel/Katzen", emoji: "🐈", lat: 33.5011, lng: 132.2374, desc: "Berühmte Katzeninsel im Seto-Binnenmeer." },
 
   // Kyushu
   { name: "Ohori-Park", city: "Fukuoka", type: "Park", emoji: "🌳", lat: 33.5869, lng: 130.3763, desc: "Zentraler Seepark mit Laufstrecken." },
   { name: "Dazaifu Tenmangu", city: "Dazaifu", type: "Schrein", emoji: "⛩️", lat: 33.5222, lng: 130.5341, desc: "Bildungs-Schrein mit Pflaumenblüte." },
+  { name: "Ainoshima (Katzeninsel)", city: "Shingu (Fukuoka)", type: "Insel/Katzen", emoji: "🐈", lat: 33.7440, lng: 130.3220, desc: "Katzenreiche Insel bei Fukuoka; Fähre ab Shingu." },
   { name: "Nagasaki Friedenspark", city: "Nagasaki", type: "Memorial", emoji: "🕊️", lat: 32.7766, lng: 129.8647, desc: "Gedenkpark nahe dem Hypozentrum." },
   { name: "Glover Garden", city: "Nagasaki", type: "Garten", emoji: "🏛️", lat: 32.7357, lng: 129.8694, desc: "Historische westliche Residenzen." },
   { name: "Hashima (Gunkanjima)", city: "Nagasaki", type: "Insel/Industrie", emoji: "🏝️", lat: 32.6278, lng: 129.7386, desc: "Verlassene Kohleinsel, Bootsfahrten ab Nagasaki." },
