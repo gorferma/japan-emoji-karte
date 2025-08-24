@@ -28,14 +28,15 @@ body.no-scroll { overflow: hidden; }
 /* Header */
 .app-header {
   position: sticky; top: 0; z-index: 500;
-  display: flex; align-items: center; justify-content: space-between;
+  display: grid; grid-template-columns: auto 1fr auto; align-items: center;
+  gap: 8px;
   padding: 10px 14px; background: linear-gradient(180deg, rgba(15,23,42,0.95), rgba(15,23,42,0.85));
   border-bottom: 1px solid rgba(148,163,184,0.12);
   backdrop-filter: saturate(140%) blur(8px);
 }
 body[data-theme="light"] .app-header { background: linear-gradient(180deg, rgba(255,255,255,0.9), rgba(255,255,255,0.8)); border-bottom-color: rgba(2,8,23,0.08); }
 .brand { font-weight: 700; letter-spacing: 0.2px; }
-.app-actions { display: flex; gap: 8px; }
+.app-actions { display: flex; gap: 8px; justify-self: end; }
 .btn { appearance: none; border: 1px solid rgba(148,163,184,0.2); background: transparent; color: var(--text); border-radius: 10px; padding: 8px 12px; cursor: pointer; transition: all .2s ease; }
 .btn:hover { border-color: rgba(148,163,184,0.35); transform: translateY(-1px); }
 .btn-primary { background: var(--primary); border-color: var(--primary); color: #001019; }
@@ -123,16 +124,15 @@ body[data-theme="light"] .leaflet-control-scale-line { background: rgba(255,255,
   .leaflet-control-zoom { display: none !important; }
 }
 
-/* Remove old mobile FAB and add edge handle */
+/* Remove old mobile FAB and edge handle */
 .mobile-fab { display: none !important; }
+.edge-handle { display: none !important; }
 
-/* Edge handle (three vertical lines) */
-.edge-handle { position: fixed; left: 6px; top: 50%; transform: translateY(-50%); z-index: 520; background: transparent; border: none; padding: 8px 6px; border-radius: 10px; cursor: pointer; }
-.edge-handle:focus { outline: 2px solid var(--primary); outline-offset: 2px; }
-.edge-handle span { display: block; width: 4px; height: 18px; background: var(--text); margin: 3px 0; border-radius: 2px; opacity: 0.85; }
-body[data-theme="light"] .edge-handle span { background: #0f172a; }
-
-@media (min-width: 601px) { .edge-handle { display: none; } }
+/* Hamburger button with three horizontal stripes (mobile only) */
+.btn-hamburger { display: inline-flex; align-items: center; justify-content: center; gap: 3px; width: 40px; height: 36px; border-radius: 10px; }
+.btn-hamburger span { display: block; width: 20px; height: 2px; background: var(--text); border-radius: 2px; }
+body[data-theme="light"] .btn-hamburger span { background: #0f172a; }
+@media (min-width: 601px) { .btn-hamburger { display: none; } }
 
 /* Mobile Overlay (Left Drawer) */
 .mobile-overlay { position: fixed; inset: 0; z-index: 510; pointer-events: none; }

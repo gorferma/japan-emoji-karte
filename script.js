@@ -98,6 +98,16 @@ window.addEventListener('DOMContentLoaded', () => {
       try { localStorage.setItem('theme', next); } catch {}
     });
   }
+
+  // Wire up hamburger button to open the mobile legend/filter drawer
+  const btnFilter = document.getElementById('btn-filter');
+  if (btnFilter) {
+    btnFilter.addEventListener('click', () => {
+      if (!isMobile()) return;
+      if (!mobileOverlayEl) initMobileUI();
+      if (mobileOverlayEl) mobileOverlayEl.open();
+    });
+  }
 });
 
 // Geocoder (nur Japan)
@@ -615,9 +625,6 @@ const isMobile = () => window.matchMedia('(max-width: 600px)').matches;
 
 // --- Mobile Overlay (Left Drawer) ---
 let mobileOverlayEl = null;
-let mobileHandleEl = null;
-let edgeMoveHandler = null;
-let edgeUpHandler = null;
 
 function renderMobileOverlayContent(container) {
   const ordered = CATEGORY_ORDER.filter((e) => presentEmojis.has(e));
@@ -732,60 +739,9 @@ function initMobileUI() {
   document.body.appendChild(holder);
 
   mobileOverlayEl = renderMobileOverlayContent(holder);
-
-  // Create left edge handle (three vertical lines)
-  mobileHandleEl = document.createElement('button');
-  mobileHandleEl.className = 'edge-handle';
-  mobileHandleEl.type = 'button';
-  mobileHandleEl.title = 'Filter & Kategorien';
-  mobileHandleEl.setAttribute('aria-label', 'Filter & Kategorien öffnen');
-  mobileHandleEl.innerHTML = '<span></span><span></span><span></span>';
-  document.body.appendChild(mobileHandleEl);
-
-  // Open on tap/click
-  mobileHandleEl.addEventListener('click', () => { if (mobileOverlayEl) mobileOverlayEl.open(); });
-
-  // Simple drag-to-open gesture
-  let dragging = false;
-  let startX = 0;
-  const onDown = (e) => {
-    dragging = true;
-    startX = (e.touches && e.touches[0] ? e.touches[0].clientX : e.clientX) || 0;
-  };
-  edgeMoveHandler = (e) => {
-    if (!dragging) return;
-    const x = (e.touches && e.touches[0] ? e.touches[0].clientX : e.clientX) || 0;
-    if (x - startX > 24) { // pulled to the right
-      dragging = false;
-      if (mobileOverlayEl) mobileOverlayEl.open();
-    }
-  };
-  edgeUpHandler = () => { dragging = false; };
-
-  mobileHandleEl.addEventListener('pointerdown', onDown, { passive: true });
-  window.addEventListener('pointermove', edgeMoveHandler, { passive: true });
-  window.addEventListener('pointerup', edgeUpHandler, { passive: true });
-  // Touch support
-  mobileHandleEl.addEventListener('touchstart', onDown, { passive: true });
-  window.addEventListener('touchmove', edgeMoveHandler, { passive: true });
-  window.addEventListener('touchend', edgeUpHandler, { passive: true });
 }
 
 function destroyMobileUI() {
-  if (mobileHandleEl) {
-    mobileHandleEl.remove();
-    mobileHandleEl = null;
-  }
-  if (edgeMoveHandler) {
-    window.removeEventListener('pointermove', edgeMoveHandler);
-    window.removeEventListener('touchmove', edgeMoveHandler);
-    edgeMoveHandler = null;
-  }
-  if (edgeUpHandler) {
-    window.removeEventListener('pointerup', edgeUpHandler);
-    window.removeEventListener('touchend', edgeUpHandler);
-    edgeUpHandler = null;
-  }
   if (mobileOverlayEl && mobileOverlayEl.parentNode && mobileOverlayEl.parentNode.parentNode) {
     mobileOverlayEl.parentNode.parentNode.removeChild(mobileOverlayEl.parentNode);
   }
