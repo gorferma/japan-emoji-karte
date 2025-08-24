@@ -304,7 +304,7 @@ let attractionsAug = [];
 let presentEmojis = new Set();
 let emojiVisibility = new Map();
 let lodLayer = null;
-let showOnlyTop10 = false; // NEW: global toggle to show only Top-10
+let showTop10 = true; // NEW: treat Top-10 like a normal filter (visible by default)
 
 function initAttractionsMeta(list) {
   // Build augmented list with guaranteed emoji and importance score
@@ -329,11 +329,11 @@ function initAttractionsMeta(list) {
       }
     }
   } catch {}
-  // NEW: restore Top-10-only toggle
+  // NEW: restore Top-10 visibility
   try {
-    const t10 = localStorage.getItem('showOnlyTop10');
-    showOnlyTop10 = (t10 === '1' || t10 === 'true');
-  } catch {}
+    const t10 = localStorage.getItem('showTop10');
+    showTop10 = (t10 === null) ? true : (t10 === '1' || t10 === 'true');
+  } catch { showTop10 = true; }
 }
 
 function persistEmojiVisibility() {
@@ -433,31 +433,13 @@ class LODGridLayer {
     const pad = 80;
     const emojiOn = (e) => (emojiVisibility.get(e) !== false);
     const baseMinZoom = (typeof this.map.getMinZoom === 'function') ? (this.map.getMinZoom() ?? 2) : 2;
+    const passesFilters = (a) => emojiOn(a.emoji) && (showTop10 || !topAttractions.has(a.name)); // NEW
 
-    // NEW: Top-10 only mode – always render only curated Top-10 as markers
-    if (showOnlyTop10) {
-      const visible = new Set();
-      for (const a of this.data) {
-        if (!topAttractions.has(a.name)) continue;
-        const p = this.map.latLngToContainerPoint([a.lat, a.lng]);
-        if (p.x < -pad || p.y < -pad || p.x > size.x + pad || p.y > size.y + pad) continue;
-        const mk = this.ensureMarker(a);
-        if (!this.layer.hasLayer(mk)) this.layer.addLayer(mk);
-        visible.add(a.name);
-      }
-      // hide other markers and all dots
-      for (const [name, mk] of this.pool) {
-        if (!visible.has(name) && this.layer.hasLayer(mk)) this.layer.removeLayer(mk);
-      }
-      for (const [, dot] of this.dotsPool) { if (this.dotsLayer.hasLayer(dot)) this.dotsLayer.removeLayer(dot); }
-      return;
-    }
-
-    // Outer two zoom levels: only Top-1 by score
+    // Outer two zoom levels: only Top-1 by score among filtered
     if (z <= baseMinZoom + 1) {
-      const top1 = getTopNByScore(this.data, 1)[0];
+      const top1 = getTopNByScore(this.data.filter(passesFilters), 1)[0];
       const keepMarkers = new Set();
-      if (top1 && emojiOn(top1.emoji)) {
+      if (top1) {
         const mk = this.ensureMarker(top1);
         if (!this.layer.hasLayer(mk)) this.layer.addLayer(mk);
         keepMarkers.add(top1.name);
@@ -471,16 +453,16 @@ class LODGridLayer {
       return;
     }
 
-    // Third outermost: only Top-3 by score as markers, rest as dots
+    // Third outermost: only Top-3 by score as markers, rest as dots (all filtered)
     if (z === baseMinZoom + 2) {
       const bounds = this.map.getPixelBounds();
       const min = bounds.min.subtract([pad, pad]);
       const max = bounds.max.add([pad, pad]);
-      const top3 = getTopNByScore(this.data, 3).map(a => a.name);
+      const filtered = this.data.filter(passesFilters);
+      const top3 = getTopNByScore(filtered, 3).map(a => a.name);
       const keepMarkers = new Set();
       const keepDots = new Set();
-      for (const a of this.data) {
-        if (!emojiOn(a.emoji)) continue;
+      for (const a of filtered) {
         const pt = this.map.project([a.lat, a.lng], z);
         if (pt.x < min.x || pt.y < min.y || pt.x > max.x || pt.y > max.y) continue;
         if (top3.includes(a.name)) {
@@ -501,11 +483,11 @@ class LODGridLayer {
       return;
     }
 
-    // High zoom: render all markers directly, clear dots
+    // High zoom: render all markers directly, clear dots (filtered)
     if (cell === 0) {
       const visible = new Set();
       for (const a of this.data) {
-        if (!emojiOn(a.emoji)) continue;
+        if (!passesFilters(a)) continue;
         const p = this.map.latLngToContainerPoint([a.lat, a.lng]);
         if (p.x < -pad || p.y < -pad || p.x > size.x + pad || p.y > size.y + pad) continue;
         const mk = this.ensureMarker(a);
@@ -519,18 +501,22 @@ class LODGridLayer {
       return;
     }
 
-    // Low/medium zoom: Top-10 always as markers, rest score-based
+    // Low/medium zoom: Top-10 always as markers (if enabled), rest score-based
     const bounds = this.map.getPixelBounds();
     const min = bounds.min.subtract([pad, pad]);
     const max = bounds.max.add([pad, pad]);
-    const top10 = getTopNByScore(this.data, 10).map(a => a.name);
     const keepMarkers = new Set();
     const keepDots = new Set();
+
+    // Precompute top-10 by score
+    const filteredAll = this.data.filter(passesFilters);
+    const top10ByScore = getTopNByScore(filteredAll, 10).map(a => a.name);
+
     for (const a of this.data) {
-      if (!emojiOn(a.emoji)) continue;
+      if (!passesFilters(a)) continue;
       const pt = this.map.project([a.lat, a.lng], z);
       if (pt.x < min.x || pt.y < min.y || pt.x > max.x || pt.y > max.y) continue;
-      if (top10.includes(a.name)) {
+      if (showTop10 && top10ByScore.includes(a.name)) {
         const mk = this.ensureMarker(a);
         if (!this.layer.hasLayer(mk)) this.layer.addLayer(mk);
         keepMarkers.add(a.name);
@@ -591,8 +577,8 @@ function buildLegendOnAdd() {
       </div>
       <div class="legend-top10">
         <label for="legend-top10">
-          <input id="legend-top10" type="checkbox" data-top10-only ${showOnlyTop10 ? 'checked' : ''}>
-          Nur Top 10
+          <input id="legend-top10" type="checkbox" data-top10 ${showTop10 ? 'checked' : ''}>
+          Top 10
         </label>
       </div>
       <ul class="legend-list">
@@ -615,7 +601,7 @@ function buildLegendOnAdd() {
     header.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); } });
 
     const allCb = div.querySelector('input[data-legend-all]');
-    const top10Cb = div.querySelector('input[data-top10-only]');
+    const top10Cb = div.querySelector('input[data-top10]');
     const itemCbs = Array.from(div.querySelectorAll('input[data-emoji]'));
 
     function syncMaster() {
@@ -632,12 +618,14 @@ function buildLegendOnAdd() {
         const emoji = cb.getAttribute('data-emoji');
         setEmojiVisibility(emoji, checked);
       });
+      // Also toggle Top-10 like other filters
+      if (top10Cb) { top10Cb.checked = checked; setTop10Visible(checked); }
       syncMaster();
     });
 
     if (top10Cb) {
       top10Cb.addEventListener('change', () => {
-        setTop10Only(top10Cb.checked);
+        setTop10Visible(top10Cb.checked);
       });
     }
 
@@ -700,8 +688,8 @@ function renderMobileOverlayContent(container) {
           </div>
           <div class="legend-top10 legend-top10--mobile">
             <label>
-              <input type="checkbox" data-top10-only ${showOnlyTop10 ? 'checked' : ''}>
-              Nur Top 10
+              <input type="checkbox" data-top10 ${showTop10 ? 'checked' : ''}>
+              Top 10
             </label>
           </div>
           <div class="legend-search">
@@ -721,7 +709,7 @@ function renderMobileOverlayContent(container) {
   const list = overlay.querySelector('.legend-list');
   const search = overlay.querySelector('.legend-search input');
   const allCb = overlay.querySelector('input[data-legend-all]');
-  const top10Cb = overlay.querySelector('input[data-top10-only]');
+  const top10Cb = overlay.querySelector('input[data-top10]');
   const itemCbs = Array.from(overlay.querySelectorAll('input[data-emoji]'));
 
   function open() {
@@ -754,12 +742,13 @@ function renderMobileOverlayContent(container) {
       const emoji = cb.getAttribute('data-emoji');
       setEmojiVisibility(emoji, checked);
     });
+    if (top10Cb) { top10Cb.checked = checked; setTop10Visible(checked); }
     syncMaster();
   });
 
   if (top10Cb) {
     top10Cb.addEventListener('change', () => {
-      setTop10Only(top10Cb.checked);
+      setTop10Visible(top10Cb.checked);
     });
   }
 
@@ -830,9 +819,9 @@ function setEmojiVisibility(emoji, show) {
   if (lodLayer) lodLayer.update();
 }
 
-function setTop10Only(val) { // NEW: toggle handler
-  showOnlyTop10 = !!val;
-  try { localStorage.setItem('showOnlyTop10', showOnlyTop10 ? '1' : '0'); } catch {}
+function setTop10Visible(val) { // NEW: toggle handler for Top-10 as filter
+  showTop10 = !!val;
+  try { localStorage.setItem('showTop10', showTop10 ? '1' : '0'); } catch {}
   if (lodLayer) lodLayer.update();
 }
 
