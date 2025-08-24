@@ -57,12 +57,7 @@ map.setMinZoom(2);
 
 // Header-Buttons: Auf Japan zoomen & Teilen & Theme & Zoom sichtbare Kategorien
 window.addEventListener('DOMContentLoaded', () => {
-  const btnReset = document.getElementById('btn-reset');
-  if (btnReset) {
-    btnReset.addEventListener('click', () => {
-      map.fitBounds(japanBounds, { padding: [20, 20] });
-    });
-  }
+  // Entfernt: btn-reset (Japan) & btn-zoom-visible (Sichtbare)
   const btnShare = document.getElementById('btn-share');
   if (btnShare) {
     btnShare.addEventListener('click', async () => {
@@ -74,7 +69,6 @@ window.addEventListener('DOMContentLoaded', () => {
           await navigator.clipboard.writeText(shareUrl);
           alert('Link kopiert');
         } else {
-          // Fallback
           const ta = document.createElement('textarea');
           ta.value = shareUrl; document.body.appendChild(ta); ta.select();
           document.execCommand('copy'); document.body.removeChild(ta);
@@ -97,27 +91,6 @@ window.addEventListener('DOMContentLoaded', () => {
       const next = light ? 'dark' : 'light';
       apply(next);
       try { localStorage.setItem('theme', next); } catch {}
-    });
-  }
-
-  const btnZoomVisible = document.getElementById('btn-zoom-visible');
-  if (btnZoomVisible) {
-    btnZoomVisible.addEventListener('click', () => {
-      // Sammle alle aktuell sichtbaren Marker aus dem globalen Cluster
-      const visibleMarkers = [];
-      Object.keys(emojiLayers).forEach((emoji) => {
-        if (emojiVisibility.get(emoji) !== false) {
-          const group = emojiLayers[emoji];
-          group.eachLayer((m) => {
-            // m ist der originale Marker; prüfe, ob in Karte/Cluster vorhanden
-            if (globalCluster.hasLayer(m)) visibleMarkers.push(m);
-          });
-        }
-      });
-      if (visibleMarkers.length > 0) {
-        const bounds = L.latLngBounds(visibleMarkers.map(m => m.getLatLng()));
-        map.flyToBounds(bounds, { padding: [30, 30], maxZoom: 11, duration: 0.5 });
-      }
     });
   }
 });
@@ -229,7 +202,7 @@ const EMOJI_KEYWORDS = [
   { k: ['kirsch','sakura','blüte','blossom','hanami','hirosaki'], e: '🌸' },
   { k: ['nationalpark','shirakami','shiretoko','daisetsuzan'], e: '🏞️' },
   { k: ['schlucht','gorge','oirase','takachiho'], e: '🏞️' },
-  { k: ['wasserfall','falls','kegon','nachi'], e: '💦' },
+  { k: ['wasserfall','falls','kegon','nachi'], e: '💧' },
   { k: ['see ',' lake','-see','chuzenji','tazawa'], e: '🏞️' },
   { k: ['bucht','bai','bay','matsushima','kabira'], e: '🌊' },
   { k: ['küste','kueste','strand','beach','insel','island','jima','jima)','jima '], e: '🏝️' },
@@ -259,7 +232,7 @@ const CATEGORY_LABELS = {
   '🎮': 'Elektronik/Popkultur',
   '🌸': 'Kirschen/Blüte',
   '🏞️': 'Nationalpark/Schlucht',
-  '💦': 'Wasserfall',
+  '💧': 'Wasserfall',
   '♨️': 'Onsen',
   '🌉': 'Brücke',
   '🏝️': 'Insel/Strand',
@@ -286,7 +259,7 @@ const CATEGORY_LABELS = {
   '🏜️': 'Sanddünen',
   '🏖️': 'Strand'
 };
-const CATEGORY_ORDER = ['🗻','⛩️','🛕','🏯','🗼','🚦','🕊️','🍜','🎮','🌸','🏞️','💦','♨️','🌉','🏝️','🐈','🐠','🏛️','🎢','🎆','🥾','🏘️','📍'];
+const CATEGORY_ORDER = ['🗻','⛩️','🛕','🏯','🗼','🚦','🕊️','🍜','🎮','🌸','🏞️','💧','♨️','🌉','🏝️','🐈','🐠','🏛️','🎢','🎆','🥾','🏘️','📍'];
 
 function getEmojiForAttraction(a) {
   if (a.emoji && String(a.emoji).trim()) return a.emoji;

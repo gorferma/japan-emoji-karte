@@ -46,7 +46,7 @@ const attractions = [
   { name: "Tsurugaoka Hachimangu", city: "Kamakura", type: "Schrein", emoji: "⛩️", lat: 35.3260, lng: 139.5540, desc: "Wichtigster Schrein Kamakuras." },
   { name: "Enoshima", city: "Fujisawa", type: "Insel/Strand", emoji: "🏝️", lat: 35.3000, lng: 139.4800, desc: "Freizeitinsel mit Leuchtturm und Stränden." },
   { name: "Nikko Toshogu", city: "Nikko", type: "Schrein", emoji: "⛩️", lat: 36.7570, lng: 139.5993, desc: "Prächtig verzierter Schrein (UNESCO)." },
-  { name: "Kegon-Wasserfall", city: "Nikko", type: "Wasserfall", emoji: "💦", lat: 36.7350, lng: 139.4930, desc: "Spektakulärer Fall am Chuzenji-See." },
+  { name: "Kegon-Wasserfall", city: "Nikko", type: "Wasserfall", emoji: "💧", lat: 36.7350, lng: 139.4930, desc: "Spektakulärer Fall am Chuzenji-See." },
   { name: "Chuzenji-See", city: "Nikko", type: "See", emoji: "🏞️", lat: 36.7450, lng: 139.5110, desc: "Hochgelegener See westlich von Nikko." },
   { name: "Hakone Ashi-See", city: "Hakone", type: "See", emoji: "🏞️", lat: 35.2040, lng: 139.0240, desc: "Postkartenblick mit Torii und Fuji." },
   { name: "Owakudani", city: "Hakone", type: "Vulkanlandschaft", emoji: "🌋", lat: 35.2420, lng: 139.0190, desc: "Schwefeldämpfe, schwarze Eier und Ausblicke." },
@@ -94,7 +94,7 @@ const attractions = [
   { name: "Universal Studios Japan", city: "Osaka", type: "Freizeitpark", emoji: "🎢", lat: 34.6654, lng: 135.4323, desc: "Themenwelten von Nintendo bis Harry Potter." },
   { name: "Himeji-jo (Burg Himeji)", city: "Himeji", type: "Burg", emoji: "🏯", lat: 34.8394, lng: 134.6939, desc: "Prächtige weiße Burg (UNESCO)." },
   { name: "Koyasan & Okunoin", city: "Wakayama", type: "Tempel/Friedhof", emoji: "🛕", lat: 34.2128, lng: 135.5860, desc: "Spirituelles Zentrum des Shingon-Buddhismus." },
-  { name: "Kumano Nachi no Taki", city: "Nachikatsuura", type: "Wasserfall", emoji: "💦", lat: 33.6670, lng: 135.8890, desc: "Hoher Wasserfall neben Schrein." },
+  { name: "Kumano Nachi no Taki", city: "Nachikatsuura", type: "Wasserfall", emoji: "💧", lat: 33.6670, lng: 135.8890, desc: "Hoher Wasserfall neben Schrein." },
   { name: "Kinosaki Onsen", city: "Toyooka", type: "Onsen", emoji: "♨️", lat: 35.6260, lng: 134.8130, desc: "Badepass durch sieben Badehäuser." },
   { name: "Amanohashidate", city: "Miyazu", type: "Sandbank/Panorama", emoji: "🌊", lat: 35.5660, lng: 135.1950, desc: "Himmelspfad über der Bucht." },
 
