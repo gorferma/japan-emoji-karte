@@ -116,7 +116,7 @@ window.addEventListener('DOMContentLoaded', () => {
       });
       if (visibleMarkers.length > 0) {
         const bounds = L.latLngBounds(visibleMarkers.map(m => m.getLatLng()));
-        map.flyToBounds(bounds, { padding: [30, 30], maxZoom: 10, duration: 0.5 });
+        map.flyToBounds(bounds, { padding: [30, 30], maxZoom: 11, duration: 0.5 });
       }
     });
   }
@@ -154,19 +154,18 @@ const globalCluster = L.markerClusterGroup({
   chunkedLoading: true,
   chunkInterval: 150,
   chunkDelay: 25,
-  removeOutsideVisibleBounds: true,
-  // früheres Auflösen: Radius schrumpft mit Zoom
+  removeOutsideVisibleBounds: false,
+  // Clustern nur bei sehr weitem Herauszoomen
   maxClusterRadius: (z) => {
-    if (z <= 5) return 120;
-    if (z <= 7) return 95;
-    if (z <= 9) return 70;
-    if (z <= 10) return 45;
-    if (z <= 11) return 28;
-    return 18; // ab ~12 fast alles getrennt
+    if (z <= 4) return 100;
+    if (z <= 5) return 80;
+    if (z <= 6) return 60;
+    if (z <= 7) return 40;
+    return 0; // ab 8 praktisch keine Clusterbildung mehr
   },
-  disableClusteringAtZoom: 12,      // spätestens hier vollständig getrennt
+  disableClusteringAtZoom: 8,      // ab Zoom 8 Marker getrennt
   showCoverageOnHover: false,
-  zoomToBoundsOnClick: false,       // eigenes Klickverhalten (siehe unten)
+  zoomToBoundsOnClick: false,
   spiderfyOnEveryZoom: false,
   spiderfyOnMaxZoom: true,
   spiderfyDistanceMultiplier: 1.25,
