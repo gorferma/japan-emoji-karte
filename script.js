@@ -4,6 +4,11 @@ const map = L.map("map", {
   worldCopyJump: true
 });
 
+// Custom pane for lightweight dots (rendered below markers, above tiles)
+map.createPane('dots-pane');
+map.getPane('dots-pane').style.zIndex = 450; // overlayPane is 400, markerPane is 600
+map.getPane('dots-pane').style.pointerEvents = 'auto';
+
 // Theme: load from storage and toggle
 (function initTheme() {
   try {
@@ -216,7 +221,9 @@ const CURATED_TOP10 = [
   'Friedensdenkmal Hiroshima',
   'Shibuya Crossing'
 ];
-const CURATED_SCORES = new Map(CURATED_TOP10.map((name, i) => [name, 100 - i * 2]));
+// Assign unique scores for Top-10, strictly descending
+const CURATED_SCORES = new Map(CURATED_TOP10.map((name, i) => [name, 100 - i * 3]));
+const topAttractions = new Set(CURATED_TOP10);
 
 function getEmojiForAttraction(a) {
   if (a.emoji && String(a.emoji).trim()) return a.emoji;
@@ -251,97 +258,156 @@ function buildPopupContent(a) {
 // ---- Importance-basierte LOD-Logik (anstelle von Zahlen-Clustering) ----
 function computeImportance(a) {
   let s = 10;
-  // Curated Top-10 erhalten vordefinierte, absteigende Scores (100, 98, ...)
+  // Curated Top-10 erhalten vordefinierte, absteigende Scores (100, 97, 94, ...)
   const curated = CURATED_SCORES.get(a.name);
   if (typeof curated === 'number') s = curated;
   const t = (a.type || '').toLowerCase();
   const boost = (v) => { s = Math.max(s, v); };
   if (t.includes('unesco')) boost(90);
-  else if (t.includes('vulkan') || t.includes('berg')) boost(70);
-  else if (t.includes('burg') || t.includes('schloss')) boost(65);
-  else if (t.includes('tempel') || t.includes('schrein') || t.includes('pagode')) boost(60);
-  else if (t.includes('nationalpark') || t.includes('natur') || t.includes('see') || t.includes('schlucht')) boost(55);
-  else if (t.includes('garten') || t.includes('park')) boost(50);
-  else if (t.includes('viertel') || t.includes('altstadt')) boost(45);
-  else if (t.includes('museum') || t.includes('aquarium')) boost(40);
-  else if (t.includes('onsen')) boost(35);
+  else if (t.includes('vulkan') || t.includes('berg')) boost(75);
+  else if (t.includes('burg') || t.includes('schloss')) boost(70);
+  else if (t.includes('tempel') || t.includes('schrein') || t.includes('pagode')) boost(65);
+  else if (t.includes('nationalpark') || t.includes('natur') || t.includes('see') || t.includes('schlucht')) boost(60);
+  else if (t.includes('garten') || t.includes('park')) boost(55);
+  else if (t.includes('viertel') || t.includes('altstadt')) boost(50);
+  else if (t.includes('museum') || t.includes('aquarium')) boost(45);
+  else if (t.includes('onsen')) boost(40);
   const n = (a.name || '').toLowerCase();
-  if (n.includes('fuji')) s = Math.max(s, 95);
-  if (n.includes('skytree') || n.includes('tokyo tower')) s = Math.max(s, 80);
-  if (n.includes('miyajima') || n.includes('itsukushima')) s = Math.max(s, 85);
-  if (n.includes('himeji')) s = Math.max(s, 80);
-  if (n.includes('daibutsu') || n.includes('buddha')) s = Math.max(s, 70);
+  if (n.includes('fuji')) s = Math.max(s, 99);
+  if (n.includes('skytree') || n.includes('tokyo tower')) s = Math.max(s, 85);
+  if (n.includes('miyajima') || n.includes('itsukushima')) s = Math.max(s, 92);
+  if (n.includes('himeji')) s = Math.max(s, 89);
+  if (n.includes('daibutsu') || n.includes('buddha')) s = Math.max(s, 80);
   const ov = (window.attractionImportance && window.attractionImportance[a.name]);
   if (typeof ov === 'number') s = ov;
   return Math.max(0, Math.min(100, s));
 }
-function zoomScoreThreshold(z) {
-  if (z <= 4) return 90;
-  if (z <= 5) return 85;
-  if (z <= 6) return 80;
-  if (z <= 7) return 70;
-  if (z <= 8) return 60;
-  if (z <= 9) return 50;
-  if (z <= 10) return 35;
-  if (z <= 11) return 20;
-  return 0;
-}
-function cellSizeForZoom(z) {
-  if (z <= 4) return 140;
-  if (z <= 5) return 110;
-  if (z <= 6) return 90;
-  if (z <= 7) return 70;
-  if (z <= 8) return 54;
-  if (z <= 9) return 40;
-  if (z <= 10) return 30;
-  if (z <= 11) return 20;
-  return 0;
+
+function getTopNByScore(list, n) {
+  return [...list]
+    .sort((a, b) => b._score - a._score)
+    .slice(0, n);
 }
 
-// Zustand für Emoji-Filter
-const presentEmojis = new Set();
-const emojiVisibility = new Map();
+// ===== Added: LOD helpers and data initialization =====
 let attractionsAug = [];
+let presentEmojis = new Set();
+let emojiVisibility = new Map();
 let lodLayer = null;
-let topAttractions = new Set();
 
-// Initialisiere Attraktions-Metadaten (Emoji + Score sammeln)
 function initAttractionsMeta(list) {
+  // Build augmented list with guaranteed emoji and importance score
   attractionsAug = list.map((a) => {
-    const emj = getEmojiForAttraction(a);
-    presentEmojis.add(emj);
-    return { ...a, emoji: emj, _score: computeImportance({ ...a, emoji: emj }) };
+    const emoji = getEmojiForAttraction(a);
+    const base = { ...a, emoji };
+    const _score = computeImportance(base);
+    return { ...base, _score };
   });
-  // Standard: alle sichtbar
-  presentEmojis.forEach(e => emojiVisibility.set(e, true));
-  // Top 10 markieren: bevorzugt kuratierte Liste, sonst Score-Top10
-  const curatedExisting = CURATED_TOP10.filter(name => attractionsAug.some(a => a.name === name));
-  if (curatedExisting.length >= 1) {
-    topAttractions = new Set(curatedExisting.slice(0, 10));
-  } else {
-    const sorted = [...attractionsAug].sort((a, b) => b._score - a._score);
-    topAttractions = new Set(sorted.slice(0, 10).map(a => a.name));
-  }
+  // Collect present emojis
+  presentEmojis = new Set(attractionsAug.map((a) => a.emoji));
+  // Initialize visibility (all visible by default); try restore from storage
+  emojiVisibility = new Map();
+  try {
+    const raw = localStorage.getItem('emojiVisibility');
+    if (raw) {
+      const obj = JSON.parse(raw);
+      for (const e of presentEmojis) {
+        if (Object.prototype.hasOwnProperty.call(obj, e)) {
+          emojiVisibility.set(e, !!obj[e]);
+        }
+      }
+    }
+  } catch {}
 }
+
+function persistEmojiVisibility() {
+  try {
+    const obj = {};
+    for (const e of presentEmojis) obj[e] = (emojiVisibility.get(e) !== false);
+    localStorage.setItem('emojiVisibility', JSON.stringify(obj));
+  } catch {}
+}
+
+function cellSizeForZoom(z) {
+  // Return 0 when we want full marker mode; otherwise an arbitrary positive value
+  if (z >= 10) return 0; // markers appear one zoom earlier (>=10)
+  // Coarser cells at low zoom (not used directly for picking here, only to switch modes)
+  if (z <= 3) return 256;
+  if (z <= 5) return 192;
+  if (z <= 7) return 128;
+  return 96;
+}
+
+function zoomScoreThreshold(z) {
+  // Higher threshold at low zoom; decreases as you zoom in
+  if (z <= 3) return 88;
+  if (z <= 4) return 82;
+  if (z <= 5) return 76;
+  if (z <= 6) return 70;
+  if (z <= 7) return 64;
+  if (z <= 8) return 58;
+  if (z <= 9) return 50;
+  return 0; // full marker mode
+}
+// ===== End added helpers =====
 
 class LODGridLayer {
   constructor(map, data) {
     this.map = map;
     this.data = data;
     this.layer = L.layerGroup();
-    this.pool = new Map(); // name -> marker
+    // Lightweight dots for non-selected POIs (Canvas renderer bound to dots pane)
+    this.canvas = L.canvas({ padding: 0.5, pane: 'dots-pane' });
+    this.dotsLayer = L.layerGroup();
+    this.pool = new Map(); // name -> emoji marker
+    this.dotsPool = new Map(); // name -> circleMarker (dot)
     this._onUpdate = this.update.bind(this);
     map.on('moveend zoomend resize', this._onUpdate);
   }
-  addTo() { this.layer.addTo(this.map); this.update(); return this; }
-  remove() { this.map.off('moveend zoomend resize', this._onUpdate); this.layer.remove(); }
+  addTo() { this.layer.addTo(this.map); this.dotsLayer.addTo(this.map); this.canvas.addTo(this.map); this.update(); return this; }
+  remove() { this.map.off('moveend zoomend resize', this._onUpdate); this.layer.remove(); this.dotsLayer.remove(); if (this.canvas) this.map.removeLayer(this.canvas); }
   ensureMarker(a) {
     if (this.pool.has(a.name)) return this.pool.get(a.name);
     const isTop = topAttractions.has(a.name);
     const m = L.marker([a.lat, a.lng], { icon: emojiIcon(a.emoji, a.name, isTop) });
     m.bindPopup(buildPopupContent(a), { closeButton: true });
+    // Zoom to marker when clicked
+    m.on('click', () => {
+      const current = this.map.getZoom();
+      const target = Math.max(12, current + 2);
+      this.map.flyTo(m.getLatLng(), target, { duration: 0.5 });
+    });
     this.pool.set(a.name, m);
     return m;
+  }
+  ensureDot(a) {
+    let mk = this.dotsPool.get(a.name);
+    if (!mk) {
+      mk = L.circleMarker([a.lat, a.lng], {
+        renderer: this.canvas,
+        pane: 'dots-pane',
+        radius: 6,
+        stroke: true,
+        weight: 1,
+        color: '#1f2937',
+        fill: true,
+        fillColor: '#0ea5e9',
+        fillOpacity: 0.9,
+        interactive: true,
+        bubblingMouseEvents: true
+      });
+      // Click to zoom towards this point
+      mk.on('click', () => {
+        const current = this.map.getZoom();
+        const target = Math.max(10, current + 2);
+        this.map.flyTo(mk.getLatLng(), target, { duration: 0.5 });
+      });
+      this.dotsPool.set(a.name, mk);
+    } else {
+      mk.setLatLng([a.lat, a.lng]);
+    }
+    if (!this.dotsLayer.hasLayer(mk)) this.dotsLayer.addLayer(mk);
+    return mk;
   }
   update() {
     const z = this.map.getZoom();
@@ -349,14 +415,61 @@ class LODGridLayer {
     const cell = cellSizeForZoom(z);
     const size = this.map.getSize();
     const pad = 80;
-
-    // Helfer: Emoji-Filter prüfen
     const emojiOn = (e) => (emojiVisibility.get(e) !== false);
+    const baseMinZoom = (typeof this.map.getMinZoom === 'function') ? (this.map.getMinZoom() ?? 2) : 2;
 
+    // Outer two zoom levels: only Top-1 by score
+    if (z <= baseMinZoom + 1) {
+      const top1 = getTopNByScore(this.data, 1)[0];
+      const keepMarkers = new Set();
+      if (top1 && emojiOn(top1.emoji)) {
+        const mk = this.ensureMarker(top1);
+        if (!this.layer.hasLayer(mk)) this.layer.addLayer(mk);
+        keepMarkers.add(top1.name);
+      }
+      for (const [name, mk] of this.pool) {
+        if (!keepMarkers.has(name) && this.layer.hasLayer(mk)) this.layer.removeLayer(mk);
+      }
+      for (const [, dot] of this.dotsPool) {
+        if (this.dotsLayer.hasLayer(dot)) this.dotsLayer.removeLayer(dot);
+      }
+      return;
+    }
+
+    // Third outermost: only Top-3 by score as markers, rest as dots
+    if (z === baseMinZoom + 2) {
+      const bounds = this.map.getPixelBounds();
+      const min = bounds.min.subtract([pad, pad]);
+      const max = bounds.max.add([pad, pad]);
+      const top3 = getTopNByScore(this.data, 3).map(a => a.name);
+      const keepMarkers = new Set();
+      const keepDots = new Set();
+      for (const a of this.data) {
+        if (!emojiOn(a.emoji)) continue;
+        const pt = this.map.project([a.lat, a.lng], z);
+        if (pt.x < min.x || pt.y < min.y || pt.x > max.x || pt.y > max.y) continue;
+        if (top3.includes(a.name)) {
+          const mk = this.ensureMarker(a);
+          if (!this.layer.hasLayer(mk)) this.layer.addLayer(mk);
+          keepMarkers.add(a.name);
+        } else {
+          const dot = this.ensureDot(a);
+          keepDots.add(a.name);
+        }
+      }
+      for (const [name, mk] of this.pool) {
+        if (!keepMarkers.has(name) && this.layer.hasLayer(mk)) this.layer.removeLayer(mk);
+      }
+      for (const [name, dot] of this.dotsPool) {
+        if (!keepDots.has(name) && this.dotsLayer.hasLayer(dot)) this.dotsLayer.removeLayer(dot);
+      }
+      return;
+    }
+
+    // High zoom: render all markers directly, clear dots
     if (cell === 0) {
       const visible = new Set();
       for (const a of this.data) {
-        if (a._score < minScore) continue;
         if (!emojiOn(a.emoji)) continue;
         const p = this.map.latLngToContainerPoint([a.lat, a.lng]);
         if (p.x < -pad || p.y < -pad || p.x > size.x + pad || p.y > size.y + pad) continue;
@@ -367,34 +480,41 @@ class LODGridLayer {
       for (const [name, mk] of this.pool) {
         if (!visible.has(name) && this.layer.hasLayer(mk)) this.layer.removeLayer(mk);
       }
+      for (const [, dot] of this.dotsPool) { if (this.dotsLayer.hasLayer(dot)) this.dotsLayer.removeLayer(dot); }
       return;
     }
 
+    // Low/medium zoom: Top-10 always as markers, rest score-based
     const bounds = this.map.getPixelBounds();
     const min = bounds.min.subtract([pad, pad]);
     const max = bounds.max.add([pad, pad]);
-    const chosen = new Map(); // key -> best attraction
-
+    const top10 = getTopNByScore(this.data, 10).map(a => a.name);
+    const keepMarkers = new Set();
+    const keepDots = new Set();
     for (const a of this.data) {
-      if (a._score < minScore) continue;
       if (!emojiOn(a.emoji)) continue;
       const pt = this.map.project([a.lat, a.lng], z);
       if (pt.x < min.x || pt.y < min.y || pt.x > max.x || pt.y > max.y) continue;
-      const cx = Math.floor(pt.x / cell);
-      const cy = Math.floor(pt.y / cell);
-      const key = `${cx}:${cy}`;
-      const cur = chosen.get(key);
-      if (!cur || a._score > cur._score) chosen.set(key, a);
-    }
-
-    const keep = new Set();
-    for (const [, a] of chosen) {
-      const mk = this.ensureMarker(a);
-      if (!this.layer.hasLayer(mk)) this.layer.addLayer(mk);
-      keep.add(a.name);
+      if (top10.includes(a.name)) {
+        const mk = this.ensureMarker(a);
+        if (!this.layer.hasLayer(mk)) this.layer.addLayer(mk);
+        keepMarkers.add(a.name);
+        continue;
+      }
+      if (a._score >= minScore) {
+        const mk = this.ensureMarker(a);
+        if (!this.layer.hasLayer(mk)) this.layer.addLayer(mk);
+        keepMarkers.add(a.name);
+      } else {
+        const dot = this.ensureDot(a);
+        keepDots.add(a.name);
+      }
     }
     for (const [name, mk] of this.pool) {
-      if (!keep.has(name) && this.layer.hasLayer(mk)) this.layer.removeLayer(mk);
+      if (!keepMarkers.has(name) && this.layer.hasLayer(mk)) this.layer.removeLayer(mk);
+    }
+    for (const [name, dot] of this.dotsPool) {
+      if (!keepDots.has(name) && this.dotsLayer.hasLayer(dot)) this.dotsLayer.removeLayer(dot);
     }
   }
 }
@@ -572,6 +692,7 @@ function renderMobileOverlayContent(container) {
     const someOn = itemCbs.some((cb) => cb.checked);
     allCb.checked = allOn;
     allCb.indeterminate = !allOn && someOn;
+    persistEmojiVisibility();
   }
 
   allCb.addEventListener('change', () => {
@@ -698,6 +819,7 @@ window.addEventListener('resize', () => {
 // Sichtbarkeit einer Emoji-Kategorie setzen -> LOD neu rendern
 function setEmojiVisibility(emoji, show) {
   emojiVisibility.set(emoji, !!show);
+  try { persistEmojiVisibility(); } catch {}
   if (lodLayer) lodLayer.update();
 }
 
