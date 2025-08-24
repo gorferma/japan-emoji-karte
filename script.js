@@ -4,6 +4,17 @@ const map = L.map("map", {
   worldCopyJump: true
 });
 
+// Theme: load from storage and toggle
+(function initTheme() {
+  try {
+    const saved = localStorage.getItem('theme');
+    if (saved === 'light' || saved === 'dark') {
+      if (saved === 'light') document.body.setAttribute('data-theme','light');
+      else document.body.removeAttribute('data-theme');
+    }
+  } catch {}
+})();
+
 // OpenStreetMap Tiles mit deutscher Beschriftung und Attribution
 const osm = L.tileLayer("https://{s}.tile.openstreetmap.de/tiles/osmde/{z}/{x}/{y}.png", {
   maxZoom: 19,
@@ -44,7 +55,7 @@ map.setMinZoom(2);
   map.on('moveend', writeHash);
 })();
 
-// Header-Buttons: Auf Japan zoomen & Teilen
+// Header-Buttons: Auf Japan zoomen & Teilen & Theme & Zoom sichtbare Kategorien
 window.addEventListener('DOMContentLoaded', () => {
   const btnReset = document.getElementById('btn-reset');
   if (btnReset) {
@@ -71,6 +82,41 @@ window.addEventListener('DOMContentLoaded', () => {
         }
       } catch (e) {
         console.warn('Share fehlgeschlagen', e);
+      }
+    });
+  }
+
+  const btnTheme = document.getElementById('btn-theme');
+  if (btnTheme) {
+    const apply = (mode) => {
+      if (mode === 'light') document.body.setAttribute('data-theme','light');
+      else document.body.removeAttribute('data-theme');
+    };
+    btnTheme.addEventListener('click', () => {
+      const light = document.body.getAttribute('data-theme') === 'light';
+      const next = light ? 'dark' : 'light';
+      apply(next);
+      try { localStorage.setItem('theme', next); } catch {}
+    });
+  }
+
+  const btnZoomVisible = document.getElementById('btn-zoom-visible');
+  if (btnZoomVisible) {
+    btnZoomVisible.addEventListener('click', () => {
+      // Sammle alle aktuell sichtbaren Marker aus dem globalen Cluster
+      const visibleMarkers = [];
+      Object.keys(emojiLayers).forEach((emoji) => {
+        if (emojiVisibility.get(emoji) !== false) {
+          const group = emojiLayers[emoji];
+          group.eachLayer((m) => {
+            // m ist der originale Marker; prüfe, ob in Karte/Cluster vorhanden
+            if (globalCluster.hasLayer(m)) visibleMarkers.push(m);
+          });
+        }
+      });
+      if (visibleMarkers.length > 0) {
+        const bounds = L.latLngBounds(visibleMarkers.map(m => m.getLatLng()));
+        map.flyToBounds(bounds, { padding: [30, 30], maxZoom: 10, duration: 0.5 });
       }
     });
   }
@@ -138,6 +184,7 @@ map.addLayer(globalCluster);
 // Marker-Container pro Emoji (für Legenden-Checkboxen)
 const emojiLayers = {}; // { '🗻': L.layerGroup (nur Container), ... }
 const presentEmojis = new Set();
+const emojiVisibility = new Map(); // Sichtbarkeitszustand pro Emoji (mobil/desktop synchron)
 function ensureEmojiLayer(emoji) {
   if (!emojiLayers[emoji]) {
     // Nur Container pro Kategorie, nicht direkt der Karte hinzufügen
@@ -155,6 +202,7 @@ function setEmojiVisibility(emoji, show) {
   } else {
     globalCluster.removeLayers(layers);
   }
+  emojiVisibility.set(emoji, !!show);
 }
 
 // Emoji-Marker als DivIcon
@@ -310,6 +358,8 @@ function addAttractionMarkers(list) {
     ensureEmojiLayer(emj).addLayer(marker);
     globalCluster.addLayer(marker);
   });
+  // Initial alle sicht- und gespeichert setzen
+  presentEmojis.forEach(e => emojiVisibility.set(e, true));
 }
 
 addAttractionMarkers(attractions);
@@ -320,7 +370,7 @@ L.control.scale({ metric: true, imperial: false }).addTo(map);
 // Entferne die visuelle Maskierung außerhalb Japans
 // (vorheriges L.polygon mit world/japanRect wurde entfernt)
 
-// Legende (kleine Box mit Emoji-Erklärungen) – oben rechts; mobil standardmäßig geschlossen
+// Legende (Desktop) – oben rechts; mobil verwenden wir ein Bottom-Sheet-Overlay
 function buildLegendOnAdd() {
   return function () {
     const div = L.DomUtil.create('div', 'legend-control leaflet-bar');
@@ -333,20 +383,24 @@ function buildLegendOnAdd() {
     const listItemsHtml = emojiList.map((e, idx) => {
       const label = CATEGORY_LABELS[e] || 'Sonstiges';
       const inputId = `legend-emoji-${idx}`;
+      const checkedAttr = (emojiVisibility.get(e) !== false) ? 'checked' : '';
       return `
         <li>
           <label for="${inputId}">
-            <input id="${inputId}" type="checkbox" data-emoji="${e}" checked>
+            <input id="${inputId}" type="checkbox" data-emoji="${e}" ${checkedAttr}>
             <span class="emoji">${e}</span>${label}
           </label>
         </li>`;
     }).join('');
 
+    // Master-Checkbox Zustand berechnen
+    const allOn = emojiList.every(e => emojiVisibility.get(e) !== false);
+
     div.innerHTML = `
       <div class="legend-header" role="button" aria-expanded="true" tabindex="0">Legende</div>
       <div class="legend-all">
         <label for="legend-all">
-          <input id="legend-all" type="checkbox" data-legend-all checked>
+          <input id="legend-all" type="checkbox" data-legend-all ${allOn ? 'checked' : ''}>
           Alles
         </label>
       </div>
@@ -362,15 +416,9 @@ function buildLegendOnAdd() {
     const header = div.querySelector('.legend-header');
     const list = div.querySelector('.legend-list');
 
-    // Initialzustand je nach Gerät: mobil zu, Desktop offen
-    const startCollapsed = isMobile();
-    if (startCollapsed) {
-      list.style.display = 'none';
-      header.setAttribute('aria-expanded', 'false');
-    } else {
-      list.style.display = '';
-      header.setAttribute('aria-expanded', 'true');
-    }
+    // Initialzustand je nach Gerät: mobil zu, Desktop offen (hier Desktop => offen)
+    list.style.display = '';
+    header.setAttribute('aria-expanded', 'true');
 
     function toggle() {
       const isHidden = list.style.display === 'none';
@@ -426,19 +474,186 @@ function createLegendControl(position) {
 
 const isMobile = () => window.matchMedia('(max-width: 600px)').matches;
 
-// Legende immer oben rechts hinzufügen; Mobil initial geschlossen (in onAdd umgesetzt)
-let legendControl = createLegendControl('topright');
-legendControl.addTo(map);
-let wasMobile = isMobile();
+// --- Mobile Overlay (Bottom Sheet) ---
+let mobileOverlayEl = null;
+let mobileFabEl = null;
 
-// Bei Größenänderung: Wenn zwischen Mobil/Desktop gewechselt wird, Legende neu aufbauen,
-// um den gewünschten Startzustand (geschlossen/offen) zu übernehmen
+function renderMobileOverlayContent(container) {
+  // Liste und Zustände zusammenstellen
+  const ordered = CATEGORY_ORDER.filter((e) => presentEmojis.has(e));
+  const extras = Array.from(presentEmojis).filter((e) => !CATEGORY_ORDER.includes(e)).sort();
+  const emojiList = [...ordered, ...extras];
+  const allOn = emojiList.every(e => emojiVisibility.get(e) !== false);
+
+  const listItemsHtml = emojiList.map((e, idx) => {
+    const label = CATEGORY_LABELS[e] || 'Sonstiges';
+    const checkedAttr = (emojiVisibility.get(e) !== false) ? 'checked' : '';
+    return `
+      <li>
+        <label>
+          <input type="checkbox" data-emoji="${e}" ${checkedAttr}>
+          <span class="emoji">${e}</span>${label}
+        </label>
+      </li>`;
+  }).join('');
+
+  container.innerHTML = `
+    <div class="mobile-overlay" aria-hidden="true">
+      <div class="mobile-overlay__backdrop" data-close></div>
+      <section class="mobile-overlay__panel" role="dialog" aria-modal="true" aria-label="Filter">
+        <div class="mobile-overlay__header">
+          <div class="mobile-overlay__handle" aria-hidden="true"></div>
+          <div class="mobile-overlay__title">Filter</div>
+          <button type="button" class="mobile-overlay__close" title="Schließen" aria-label="Schließen" data-close>✕</button>
+        </div>
+        <div class="mobile-overlay__body">
+          <div class="legend-all legend-all--mobile">
+            <label>
+              <input type="checkbox" data-legend-all ${allOn ? 'checked' : ''}>
+              Alles
+            </label>
+          </div>
+          <div class="legend-search">
+            <input type="search" placeholder="Kategorien suchen…" aria-label="Kategorien suchen" />
+          </div>
+          <ul class="legend-list legend-list--mobile">
+            ${listItemsHtml}
+          </ul>
+        </div>
+      </section>
+    </div>
+  `;
+
+  const overlay = container.querySelector('.mobile-overlay');
+  const backdrop = overlay.querySelector('[data-close]');
+  const btnClose = overlay.querySelector('.mobile-overlay__close');
+  const list = overlay.querySelector('.legend-list');
+  const search = overlay.querySelector('.legend-search input');
+  const allCb = overlay.querySelector('input[data-legend-all]');
+  const itemCbs = Array.from(overlay.querySelectorAll('input[data-emoji]'));
+
+  function open() {
+    overlay.classList.add('open');
+    overlay.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('no-scroll');
+    setTimeout(() => search && search.focus(), 50);
+  }
+  function close() {
+    overlay.classList.remove('open');
+    overlay.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('no-scroll');
+  }
+
+  // Expose controls
+  overlay.open = open;
+  overlay.close = close;
+
+  backdrop.addEventListener('click', close);
+  btnClose.addEventListener('click', close);
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && overlay.classList.contains('open')) close();
+  });
+
+  function syncMaster() {
+    const allOn = itemCbs.every((cb) => cb.checked);
+    const someOn = itemCbs.some((cb) => cb.checked);
+    allCb.checked = allOn;
+    allCb.indeterminate = !allOn && someOn;
+  }
+
+  allCb.addEventListener('change', () => {
+    const checked = allCb.checked;
+    itemCbs.forEach((cb) => {
+      cb.checked = checked;
+      const emoji = cb.getAttribute('data-emoji');
+      setEmojiVisibility(emoji, checked);
+    });
+    syncMaster();
+  });
+
+  itemCbs.forEach((cb) => {
+    cb.addEventListener('change', () => {
+      const emoji = cb.getAttribute('data-emoji');
+      setEmojiVisibility(emoji, cb.checked);
+      syncMaster();
+    });
+  });
+
+  // Suche/Filter der Liste
+  function filterList(q) {
+    const term = q.trim().toLowerCase();
+    Array.from(list.children).forEach((li) => {
+      const text = li.textContent.toLowerCase();
+      li.style.display = text.includes(term) ? '' : 'none';
+    });
+  }
+  search.addEventListener('input', () => filterList(search.value));
+
+  return overlay;
+}
+
+function initMobileUI() {
+  // FAB erstellen
+  mobileFabEl = document.createElement('button');
+  mobileFabEl.className = 'mobile-fab';
+  mobileFabEl.type = 'button';
+  mobileFabEl.title = 'Filter & Kategorien';
+  mobileFabEl.setAttribute('aria-label', 'Filter & Kategorien öffnen');
+  mobileFabEl.textContent = 'Filter';
+  document.body.appendChild(mobileFabEl);
+
+  // Overlay-Container
+  const holder = document.createElement('div');
+  holder.className = 'mobile-overlay-holder';
+  document.body.appendChild(holder);
+
+  mobileOverlayEl = renderMobileOverlayContent(holder);
+
+  mobileFabEl.addEventListener('click', () => {
+    if (mobileOverlayEl) mobileOverlayEl.open();
+  });
+}
+
+function destroyMobileUI() {
+  if (mobileFabEl && mobileFabEl.parentNode) mobileFabEl.parentNode.removeChild(mobileFabEl);
+  if (mobileOverlayEl && mobileOverlayEl.parentNode && mobileOverlayEl.parentNode.parentNode) {
+    // remove holder
+    mobileOverlayEl.parentNode.parentNode.removeChild(mobileOverlayEl.parentNode);
+  }
+  document.body.classList.remove('no-scroll');
+  mobileFabEl = null;
+  mobileOverlayEl = null;
+}
+
+// Steuerung: je nach Gerät entweder Desktop-Legende oder Mobile-Overlay verwenden
+let legendControl = null;
+function initDesktopLegend() {
+  legendControl = createLegendControl('topright');
+  legendControl.addTo(map);
+}
+function destroyDesktopLegend() {
+  if (legendControl) {
+    map.removeControl(legendControl);
+    legendControl = null;
+  }
+}
+
+function applyUiMode() {
+  if (isMobile()) {
+    destroyDesktopLegend();
+    if (!mobileOverlayEl) initMobileUI();
+  } else {
+    destroyMobileUI();
+    if (!legendControl) initDesktopLegend();
+  }
+}
+
+applyUiMode();
+let wasMobile = isMobile();
 window.addEventListener('resize', () => {
   const nowMobile = isMobile();
   if (nowMobile !== wasMobile) {
-    map.removeControl(legendControl);
-    legendControl = createLegendControl('topright');
-    legendControl.addTo(map);
+    applyUiMode();
     wasMobile = nowMobile;
   }
 });

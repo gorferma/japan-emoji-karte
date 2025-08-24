@@ -9,9 +9,21 @@
   --border: #1f2937;
   --shadow: 0 8px 30px rgba(0,0,0,0.35);
 }
+/* Light Theme Overrides */
+body[data-theme="light"] {
+  --bg: #f8fafc;
+  --panel: #ffffff;
+  --muted: #475569;
+  --text: #0f172a;
+  --primary: #0ea5e9;
+  --primary-600: #0284c7;
+  --border: #e5e7eb;
+  --shadow: 0 8px 20px rgba(0,0,0,0.15);
+}
 * { box-sizing: border-box; }
 html, body { height: 100%; margin: 0; padding: 0; }
 body { font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; background: var(--bg); color: var(--text); }
+body.no-scroll { overflow: hidden; }
 
 /* Header */
 .app-header {
@@ -21,6 +33,7 @@ body { font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sa
   border-bottom: 1px solid rgba(148,163,184,0.12);
   backdrop-filter: saturate(140%) blur(8px);
 }
+body[data-theme="light"] .app-header { background: linear-gradient(180deg, rgba(255,255,255,0.9), rgba(255,255,255,0.8)); border-bottom-color: rgba(2,8,23,0.08); }
 .brand { font-weight: 700; letter-spacing: 0.2px; }
 .app-actions { display: flex; gap: 8px; }
 .btn { appearance: none; border: 1px solid rgba(148,163,184,0.2); background: transparent; color: var(--text); border-radius: 10px; padding: 8px 12px; cursor: pointer; transition: all .2s ease; }
@@ -41,6 +54,7 @@ body { font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sa
   border-radius: 12px; box-shadow: var(--shadow);
   transform: translate(-50%, -100%); position: relative; user-select: none; cursor: pointer;
 }
+body[data-theme="light"] .emoji-marker { background: #0f172a; color: #fff; }
 .emoji-marker::after {
   content: ""; position: absolute; left: 50%; bottom: -8px; transform: translateX(-50%);
   width: 0; height: 0; border-left: 8px solid transparent; border-right: 8px solid transparent; border-top: 10px solid rgba(148,163,184,0.25);
@@ -49,6 +63,7 @@ body { font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sa
 
 /* Popup-Content */
 .leaflet-popup-content { margin: 8px 12px; color: #e5e7eb; }
+body[data-theme="light"] .leaflet-popup-content { color: #0f172a; }
 .leaflet-popup-content h3 { margin: 0 0 6px 0; font-size: 16px; }
 .leaflet-popup-content p { margin: 0; font-size: 13px; color: var(--muted); }
 .leaflet-popup-content-wrapper { background: var(--panel); color: var(--text); border: 1px solid rgba(148,163,184,0.2); box-shadow: var(--shadow); }
@@ -67,6 +82,7 @@ body { font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sa
   position: sticky; top: 0; z-index: 1; background: rgba(15,23,42,0.96);
   padding: 8px 12px; border-bottom: 1px solid rgba(148,163,184,0.08);
 }
+body[data-theme="light"] .legend-control .legend-all { background: rgba(255,255,255,0.96); border-bottom-color: rgba(2,8,23,0.08); }
 .legend-control .legend-list {
   list-style: none; margin: 0; padding: 10px 12px 12px 12px;
   display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 14px; max-height: 240px; overflow: auto; -webkit-overflow-scrolling: touch;
@@ -94,4 +110,30 @@ body { font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sa
 /* Leaflet Controls optisch angleichen */
 .leaflet-control-zoom a { background: var(--panel); color: var(--text); border: 1px solid rgba(148,163,184,0.25); }
 .leaflet-control-zoom a:hover { background: #111827; }
+body[data-theme="light"] .leaflet-control-zoom a:hover { background: #e5e7eb; }
 .leaflet-control-scale-line { background: rgba(15,23,42,0.75); color: var(--text); border: 1px solid rgba(148,163,184,0.25); }
+body[data-theme="light"] .leaflet-control-scale-line { background: rgba(255,255,255,0.85); }
+
+/* Mobile Overlay (Bottom Sheet) */
+.mobile-fab { position: fixed; right: 16px; bottom: 16px; z-index: 520; background: var(--primary); color: #001019; border: 1px solid var(--primary); border-radius: 999px; padding: 10px 14px; box-shadow: var(--shadow); cursor: pointer; font-weight: 600; }
+.mobile-fab:hover { background: var(--primary-600); border-color: var(--primary-600); }
+@media (min-width: 601px) { .mobile-fab { display: none; } }
+
+.mobile-overlay { position: fixed; inset: 0; z-index: 510; pointer-events: none; }
+.mobile-overlay.open { pointer-events: auto; }
+.mobile-overlay__backdrop { position: absolute; inset: 0; background: rgba(0,0,0,0.4); opacity: 0; transition: opacity .2s ease; }
+.mobile-overlay.open .mobile-overlay__backdrop { opacity: 1; }
+.mobile-overlay__panel { position: absolute; left: 0; right: 0; bottom: 0; background: var(--panel); color: var(--text); border-top-left-radius: 16px; border-top-right-radius: 16px; box-shadow: var(--shadow); transform: translateY(100%); transition: transform .25s ease; max-height: 80vh; display: grid; grid-template-rows: auto 1fr; border: 1px solid rgba(148,163,184,0.18); }
+.mobile-overlay.open .mobile-overlay__panel { transform: translateY(0); }
+.mobile-overlay__header { position: sticky; top: 0; background: var(--panel); border-bottom: 1px solid rgba(148,163,184,0.12); display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 8px; padding: 10px 12px; }
+.mobile-overlay__handle { width: 40px; height: 4px; border-radius: 999px; background: rgba(148,163,184,0.35); margin: 4px auto; }
+.mobile-overlay__title { font-weight: 600; }
+.mobile-overlay__close { appearance: none; background: transparent; border: 1px solid rgba(148,163,184,0.25); color: var(--text); border-radius: 8px; padding: 6px 10px; cursor: pointer; }
+.mobile-overlay__body { padding: 10px 12px; overflow: auto; }
+.legend-all--mobile { position: sticky; top: 0; background: var(--panel); padding: 6px 0 10px 0; z-index: 1; }
+.legend-search { margin: 6px 0 10px; }
+.legend-search input { width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid rgba(148,163,184,0.25); background: transparent; color: var(--text); }
+.legend-list--mobile { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 1fr; gap: 10px; }
+.legend-list--mobile li label { display: grid; grid-template-columns: 18px 22px 1fr; align-items: center; column-gap: 8px; font-size: 15px; }
+
+@media (min-width: 601px) { .mobile-overlay { display: none; } }
