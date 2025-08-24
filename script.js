@@ -87,45 +87,66 @@ L.control.scale({ metric: true, imperial: false }).addTo(map);
 // Entferne die visuelle Maskierung außerhalb Japans
 // (vorheriges L.polygon mit world/japanRect wurde entfernt)
 
-// Legende (kleine Box mit Emoji-Erklärungen)
-const legendControl = L.control({ position: 'topright' });
-legendControl.onAdd = function () {
-  const div = L.DomUtil.create('div', 'legend-control leaflet-bar');
-  div.innerHTML = `
-    <div class="legend-header" role="button" aria-expanded="true" tabindex="0">Legende</div>
-    <ul class="legend-list">
-      <li><span class="emoji">🗻</span>Berg</li>
-      <li><span class="emoji">⛩️</span>Schrein</li>
-      <li><span class="emoji">🛕</span>Tempel</li>
-      <li><span class="emoji">🏯</span>Burg</li>
-      <li><span class="emoji">🎋</span>Natur</li>
-      <li><span class="emoji">🦌</span>Park</li>
-      <li><span class="emoji">🗼</span>Turm</li>
-      <li><span class="emoji">🚦</span>Kreuzung</li>
-      <li><span class="emoji">🕊️</span>Gedenkstätte</li>
-      <li><span class="emoji">🍜</span>Stadtviertel (Essen)</li>
-      <li><span class="emoji">🎮</span>Stadtviertel (Elektronik)</li>
-    </ul>
-  `;
-  // Interaktionen innerhalb der Legende sollen die Karte nicht bewegen
-  L.DomEvent.disableClickPropagation(div);
+// Legende (kleine Box mit Emoji-Erklärungen) – mobil unten rechts, sonst oben rechts
+function buildLegendOnAdd() {
+  return function () {
+    const div = L.DomUtil.create('div', 'legend-control leaflet-bar');
+    div.innerHTML = `
+      <div class="legend-header" role="button" aria-expanded="true" tabindex="0">Legende</div>
+      <ul class="legend-list">
+        <li><span class="emoji">🗻</span>Berg</li>
+        <li><span class="emoji">⛩️</span>Schrein</li>
+        <li><span class="emoji">🛕</span>Tempel</li>
+        <li><span class="emoji">🏯</span>Burg</li>
+        <li><span class="emoji">🎋</span>Natur</li>
+        <li><span class="emoji">🦌</span>Park</li>
+        <li><span class="emoji">🗼</span>Turm</li>
+        <li><span class="emoji">🚦</span>Kreuzung</li>
+        <li><span class="emoji">🕊️</span>Gedenkstätte</li>
+        <li><span class="emoji">🍜</span>Stadtviertel (Essen)</li>
+        <li><span class="emoji">🎮</span>Stadtviertel (Elektronik)</li>
+      </ul>
+    `;
+    // Interaktionen innerhalb der Legende sollen die Karte nicht bewegen
+    L.DomEvent.disableClickPropagation(div);
+    L.DomEvent.disableScrollPropagation(div);
 
-  // Einklappen/aufklappen per Klick oder Tastatur
-  const header = div.querySelector('.legend-header');
-  const list = div.querySelector('.legend-list');
-  function toggle() {
-    const isHidden = list.style.display === 'none';
-    list.style.display = isHidden ? '' : 'none';
-    header.setAttribute('aria-expanded', String(isHidden));
-  }
-  header.addEventListener('click', toggle);
-  header.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault();
-      toggle();
+    // Einklappen/aufklappen per Klick oder Tastatur
+    const header = div.querySelector('.legend-header');
+    const list = div.querySelector('.legend-list');
+    function toggle() {
+      const isHidden = list.style.display === 'none';
+      list.style.display = isHidden ? '' : 'none';
+      header.setAttribute('aria-expanded', String(isHidden));
     }
-  });
+    header.addEventListener('click', toggle);
+    header.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        toggle();
+      }
+    });
 
-  return div;
-};
+    return div;
+  };
+}
+
+function createLegendControl(position) {
+  const ctrl = L.control({ position });
+  ctrl.onAdd = buildLegendOnAdd();
+  return ctrl;
+}
+
+const isMobile = () => window.matchMedia('(max-width: 600px)').matches;
+let legendControl = createLegendControl(isMobile() ? 'bottomright' : 'topright');
 legendControl.addTo(map);
+
+// Bei Größenänderung Position dynamisch wechseln
+window.addEventListener('resize', () => {
+  const desired = isMobile() ? 'bottomright' : 'topright';
+  if (typeof legendControl.getPosition === 'function' && legendControl.getPosition() !== desired) {
+    map.removeControl(legendControl);
+    legendControl = createLegendControl(desired);
+    legendControl.addTo(map);
+  }
+});
