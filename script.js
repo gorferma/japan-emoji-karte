@@ -48,9 +48,26 @@ if (L.Control.geocoder) {
     .addTo(map);
 }
 
-// Marker-Layer (statt Clustering, um alle Emojis direkt zu sehen)
-const markersLayer = L.layerGroup();
-markersLayer.addTo(map);
+// Marker-Layer nach Emoji-Kategorie (statt ein gemeinsames LayerGroup)
+const emojiLayers = {}; // { '🗻': L.layerGroup, ... }
+const presentEmojis = new Set();
+function ensureEmojiLayer(emoji) {
+  if (!emojiLayers[emoji]) {
+    emojiLayers[emoji] = L.layerGroup();
+    // Standard: sichtbar
+    map.addLayer(emojiLayers[emoji]);
+  }
+  return emojiLayers[emoji];
+}
+function setEmojiVisibility(emoji, show) {
+  const layer = emojiLayers[emoji];
+  if (!layer) return;
+  if (show) {
+    if (!map.hasLayer(layer)) map.addLayer(layer);
+  } else {
+    if (map.hasLayer(layer)) map.removeLayer(layer);
+  }
+}
 
 // Emoji-Marker als DivIcon
 function emojiIcon(emoji, label) {
@@ -94,6 +111,48 @@ const EMOJI_KEYWORDS = [
   { k: ['altstadt','old town','bikan','takayama','kawagoe','kakunodate'], e: '🏘️' }
 ];
 
+// Anzeigenamen für Kategorien (für Legende) + Reihenfolge
+const CATEGORY_LABELS = {
+  '🗻': 'Berg/Vulkan',
+  '⛩️': 'Schrein',
+  '🛕': 'Tempel',
+  '🏯': 'Burg/Schloss',
+  '🗼': 'Turm',
+  '🚦': 'Kreuzung/Wahrzeichen',
+  '🕊️': 'Gedenkstätte',
+  '🍜': 'Food-Viertel/Markt',
+  '🎮': 'Elektronik/Popkultur',
+  '🌸': 'Kirschen/Blüte',
+  '🏞️': 'Nationalpark/Schlucht',
+  '💦': 'Wasserfall',
+  '♨️': 'Onsen',
+  '🌉': 'Brücke',
+  '🏝️': 'Insel/Strand',
+  '🐈': 'Katzeninsel',
+  '🐠': 'Aquarium',
+  '🏛️': 'Museum/Garten',
+  '🎢': 'Freizeitpark',
+  '🎆': 'Festival',
+  '🥾': 'Pilgerweg/Wanderung',
+  '🏘️': 'Altstadt/Tradition',
+  '📍': 'Allgemein',
+  // Zusätzliche Emojis aus den Daten (vermeidet "Sonstiges" in der Legende)
+  '❄️': 'Schneefestival',
+  '🚤': 'Kanal/Boot',
+  '🌻': 'Blumenfelder',
+  '🛶': 'Boot/Kanu',
+  '🐧': 'Zoo/Pinguine',
+  '🌳': 'Park/Natur',
+  '🍣': 'Sushi/Markt',
+  '🌆': 'Skyline/Aussicht',
+  '🌃': 'Nachtviertel',
+  '🦌': 'Park/Hirsche',
+  '🌋': 'Vulkan',
+  '🏜️': 'Sanddünen',
+  '🏖️': 'Strand'
+};
+const CATEGORY_ORDER = ['🗻','⛩️','🛕','🏯','🗼','🚦','🕊️','🍜','🎮','🌸','🏞️','💦','♨️','🌉','🏝️','🐈','🐠','🏛️','🎢','🎆','🥾','🏘️','📍'];
+
 function getEmojiForAttraction(a) {
   if (a.emoji && String(a.emoji).trim()) return a.emoji;
   const name = (a.name || '').toLowerCase();
@@ -108,8 +167,9 @@ function getEmojiForAttraction(a) {
 // Marker hinzufügen
 function addAttractionMarkers(list) {
   list.forEach((a) => {
+    const emj = getEmojiForAttraction(a);
     const marker = L.marker([a.lat, a.lng], {
-      icon: emojiIcon(getEmojiForAttraction(a), a.name)
+      icon: emojiIcon(emj, a.name)
     });
     const popupHtml = `
       <h3>${a.name}</h3>
@@ -117,7 +177,9 @@ function addAttractionMarkers(list) {
       <p>${a.desc}</p>
     `;
     marker.bindPopup(popupHtml, { closeButton: true });
-    markersLayer.addLayer(marker);
+    // Marker in LayerGroup nach Emoji
+    presentEmojis.add(emj);
+    ensureEmojiLayer(emj).addLayer(marker);
   });
 }
 
@@ -133,30 +195,34 @@ L.control.scale({ metric: true, imperial: false }).addTo(map);
 function buildLegendOnAdd() {
   return function () {
     const div = L.DomUtil.create('div', 'legend-control leaflet-bar');
+
+    // Emoji-Liste dynamisch: bekannte Kategorien in definierter Reihenfolge, dann evtl. zusätzliche Emojis
+    const ordered = CATEGORY_ORDER.filter((e) => presentEmojis.has(e));
+    const extras = Array.from(presentEmojis).filter((e) => !CATEGORY_ORDER.includes(e)).sort();
+    const emojiList = [...ordered, ...extras];
+
+    const listItemsHtml = emojiList.map((e, idx) => {
+      const label = CATEGORY_LABELS[e] || 'Sonstiges';
+      const inputId = `legend-emoji-${idx}`;
+      return `
+        <li>
+          <label for="${inputId}">
+            <input id="${inputId}" type="checkbox" data-emoji="${e}" checked>
+            <span class="emoji">${e}</span>${label}
+          </label>
+        </li>`;
+    }).join('');
+
     div.innerHTML = `
       <div class="legend-header" role="button" aria-expanded="true" tabindex="0">Legende</div>
+      <div class="legend-all">
+        <label for="legend-all">
+          <input id="legend-all" type="checkbox" data-legend-all checked>
+          Alles
+        </label>
+      </div>
       <ul class="legend-list">
-        <li><span class="emoji">🗻</span>Berg/Vulkan</li>
-        <li><span class="emoji">⛩️</span>Schrein</li>
-        <li><span class="emoji">🛕</span>Tempel</li>
-        <li><span class="emoji">🏯</span>Burg/Schloss</li>
-        <li><span class="emoji">🗼</span>Turm</li>
-        <li><span class="emoji">🚦</span>Kreuzung/Wahrzeichen</li>
-        <li><span class="emoji">🕊️</span>Gedenkstätte</li>
-        <li><span class="emoji">🍜</span>Food-Viertel/Markt</li>
-        <li><span class="emoji">🎮</span>Elektronik/Popkultur</li>
-        <li><span class="emoji">🌸</span>Kirschen/Blüte</li>
-        <li><span class="emoji">🏞️</span>Nationalpark/Schlucht</li>
-        <li><span class="emoji">💦</span>Wasserfall</li>
-        <li><span class="emoji">♨️</span>Onsen</li>
-        <li><span class="emoji">🌉</span>Brücke</li>
-        <li><span class="emoji">🏝️</span>Insel/Strand</li>
-        <li><span class="emoji">🐠</span>Aquarium</li>
-        <li><span class="emoji">🏛️</span>Museum/Garten</li>
-        <li><span class="emoji">🎢</span>Freizeitpark</li>
-        <li><span class="emoji">🎆</span>Festival</li>
-        <li><span class="emoji">🥾</span>Pilgerweg/Wanderung</li>
-        <li><span class="emoji">🏘️</span>Altstadt/Tradition</li>
+        ${listItemsHtml}
       </ul>
     `;
     // Interaktionen innerhalb der Legende sollen die Karte nicht bewegen
@@ -188,6 +254,35 @@ function buildLegendOnAdd() {
         e.preventDefault();
         toggle();
       }
+    });
+
+    // Checkbox-Interaktion
+    const allCb = div.querySelector('input[data-legend-all]');
+    const itemCbs = Array.from(div.querySelectorAll('input[data-emoji]'));
+
+    function syncMaster() {
+      const allOn = itemCbs.every((cb) => cb.checked);
+      const someOn = itemCbs.some((cb) => cb.checked);
+      allCb.checked = allOn;
+      allCb.indeterminate = !allOn && someOn;
+    }
+
+    allCb.addEventListener('change', () => {
+      const checked = allCb.checked;
+      itemCbs.forEach((cb) => {
+        cb.checked = checked;
+        const emoji = cb.getAttribute('data-emoji');
+        setEmojiVisibility(emoji, checked);
+      });
+      syncMaster();
+    });
+
+    itemCbs.forEach((cb) => {
+      cb.addEventListener('change', () => {
+        const emoji = cb.getAttribute('data-emoji');
+        setEmojiVisibility(emoji, cb.checked);
+        syncMaster();
+      });
     });
 
     return div;
