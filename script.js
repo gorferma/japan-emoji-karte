@@ -1,6 +1,6 @@
 // Karte initialisieren
 const map = L.map("map", {
-  zoomControl: true, // +/- Steuerung
+  zoomControl: true, // +/- Steuerung (per CSS auf Mobile ausgeblendet)
   worldCopyJump: true
 });
 
@@ -369,7 +369,7 @@ L.control.scale({ metric: true, imperial: false }).addTo(map);
 // Entferne die visuelle Maskierung außerhalb Japans
 // (vorheriges L.polygon mit world/japanRect wurde entfernt)
 
-// Legende (Desktop) – oben rechts; mobil verwenden wir ein Bottom-Sheet-Overlay
+// Legende (Desktop) – oben rechts; mobil verwenden wir ein Left-Drawer-Overlay
 function buildLegendOnAdd() {
   return function () {
     const div = L.DomUtil.create('div', 'legend-control leaflet-bar');
@@ -473,7 +473,7 @@ function createLegendControl(position) {
 
 const isMobile = () => window.matchMedia('(max-width: 600px)').matches;
 
-// --- Mobile Overlay (Bottom Sheet) ---
+// --- Mobile Overlay (Left Drawer) ---
 let mobileOverlayEl = null;
 let mobileFabEl = null;
 
@@ -534,13 +534,11 @@ function renderMobileOverlayContent(container) {
   function open() {
     overlay.classList.add('open');
     overlay.setAttribute('aria-hidden', 'false');
-    document.body.classList.add('no-scroll');
-    setTimeout(() => search && search.focus(), 50);
+    // No auto-focus on mobile drawer
   }
   function close() {
     overlay.classList.remove('open');
     overlay.setAttribute('aria-hidden', 'true');
-    document.body.classList.remove('no-scroll');
   }
 
   // Expose controls
@@ -619,7 +617,6 @@ function destroyMobileUI() {
     // remove holder
     mobileOverlayEl.parentNode.parentNode.removeChild(mobileOverlayEl.parentNode);
   }
-  document.body.classList.remove('no-scroll');
   mobileFabEl = null;
   mobileOverlayEl = null;
 }
