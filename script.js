@@ -49,12 +49,26 @@ if (L.Control.geocoder) {
 }
 
 // Marker-Layer nach Emoji-Kategorie (statt ein gemeinsames LayerGroup)
-const emojiLayers = {}; // { '🗻': L.layerGroup, ... }
+const emojiLayers = {}; // { '🗻': L.markerClusterGroup, ... }
 const presentEmojis = new Set();
 function ensureEmojiLayer(emoji) {
   if (!emojiLayers[emoji]) {
-    emojiLayers[emoji] = L.layerGroup();
-    // Standard: sichtbar
+    // Pro Kategorie ein Cluster-Layer mit eigenem Emoji-Cluster-Icon
+    emojiLayers[emoji] = L.markerClusterGroup({
+      chunkedLoading: true,
+      maxClusterRadius: 52,
+      disableClusteringAtZoom: 12,
+      showCoverageOnHover: false,
+      spiderfyOnEveryZoom: false,
+      iconCreateFunction: (cluster) => {
+        const count = cluster.getChildCount();
+        return L.divIcon({
+          className: 'emoji-cluster',
+          html: `<div class="inner"><span class="em">${emoji}</span><span class="cnt">${count}</span></div>`,
+          iconSize: null
+        });
+      }
+    });
     map.addLayer(emojiLayers[emoji]);
   }
   return emojiLayers[emoji];

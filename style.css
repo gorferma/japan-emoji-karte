@@ -108,3 +108,26 @@ html, body {
     font-size: 12px;
   }
 }
+
+/* Cluster-Stile für Emoji-Cluster */
+.emoji-cluster {
+  background: #fff;
+  border: 2px solid #1f2937;
+  border-radius: 9999px;
+  box-shadow: 0 6px 16px rgba(0,0,0,0.2);
+  color: #111827;
+  display: grid;
+  place-items: center;
+}
+.emoji-cluster .inner {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  font-weight: 700;
+}
+.emoji-cluster .em { font-size: 16px; line-height: 1; }
+.emoji-cluster .cnt { font-size: 12px; line-height: 1; }
+
+/* Standard-Clusterblase neutralisieren (wir nutzen eigenes DivIcon) */
+.marker-cluster div { background: transparent; border: none; }
