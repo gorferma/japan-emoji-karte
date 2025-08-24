@@ -123,11 +123,11 @@ if (L.Control.geocoder) {
 }
 
 // ---- Emoji- und Kategorie-Logik ----
-function emojiIcon(emoji, label) {
+function emojiIcon(emoji, label, isTop = false) {
   const safeLabel = (label || "").replace(/"/g, "&quot;");
   return L.divIcon({
     className: "",
-    html: `<div class="emoji-marker" aria-label="${safeLabel}" title="${safeLabel}">${emoji}</div>`,
+    html: `<div class="emoji-marker${isTop ? ' emoji-marker--top' : ''}" aria-label="${safeLabel}" title="${safeLabel}">${emoji}</div>`,
     iconSize: null,
     iconAnchor: [0, 16]
   });
@@ -285,6 +285,7 @@ const presentEmojis = new Set();
 const emojiVisibility = new Map();
 let attractionsAug = [];
 let lodLayer = null;
+let topAttractions = new Set();
 
 // Initialisiere Attraktions-Metadaten (Emoji + Score sammeln)
 function initAttractionsMeta(list) {
@@ -295,6 +296,9 @@ function initAttractionsMeta(list) {
   });
   // Standard: alle sichtbar
   presentEmojis.forEach(e => emojiVisibility.set(e, true));
+  // Top 10 nach Wichtigkeit markieren (mit manuellen Overrides berücksichtigt)
+  const sorted = [...attractionsAug].sort((a, b) => b._score - a._score);
+  topAttractions = new Set(sorted.slice(0, 10).map(a => a.name));
 }
 
 class LODGridLayer {
@@ -310,7 +314,8 @@ class LODGridLayer {
   remove() { this.map.off('moveend zoomend resize', this._onUpdate); this.layer.remove(); }
   ensureMarker(a) {
     if (this.pool.has(a.name)) return this.pool.get(a.name);
-    const m = L.marker([a.lat, a.lng], { icon: emojiIcon(a.emoji, a.name) });
+    const isTop = topAttractions.has(a.name);
+    const m = L.marker([a.lat, a.lng], { icon: emojiIcon(a.emoji, a.name, isTop) });
     m.bindPopup(buildPopupContent(a), { closeButton: true });
     this.pool.set(a.name, m);
     return m;
