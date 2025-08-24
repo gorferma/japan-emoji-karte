@@ -304,6 +304,7 @@ let attractionsAug = [];
 let presentEmojis = new Set();
 let emojiVisibility = new Map();
 let lodLayer = null;
+let showOnlyTop10 = false; // NEW: global toggle to show only Top-10
 
 function initAttractionsMeta(list) {
   // Build augmented list with guaranteed emoji and importance score
@@ -327,6 +328,11 @@ function initAttractionsMeta(list) {
         }
       }
     }
+  } catch {}
+  // NEW: restore Top-10-only toggle
+  try {
+    const t10 = localStorage.getItem('showOnlyTop10');
+    showOnlyTop10 = (t10 === '1' || t10 === 'true');
   } catch {}
 }
 
@@ -427,6 +433,25 @@ class LODGridLayer {
     const pad = 80;
     const emojiOn = (e) => (emojiVisibility.get(e) !== false);
     const baseMinZoom = (typeof this.map.getMinZoom === 'function') ? (this.map.getMinZoom() ?? 2) : 2;
+
+    // NEW: Top-10 only mode – always render only curated Top-10 as markers
+    if (showOnlyTop10) {
+      const visible = new Set();
+      for (const a of this.data) {
+        if (!topAttractions.has(a.name)) continue;
+        const p = this.map.latLngToContainerPoint([a.lat, a.lng]);
+        if (p.x < -pad || p.y < -pad || p.x > size.x + pad || p.y > size.y + pad) continue;
+        const mk = this.ensureMarker(a);
+        if (!this.layer.hasLayer(mk)) this.layer.addLayer(mk);
+        visible.add(a.name);
+      }
+      // hide other markers and all dots
+      for (const [name, mk] of this.pool) {
+        if (!visible.has(name) && this.layer.hasLayer(mk)) this.layer.removeLayer(mk);
+      }
+      for (const [, dot] of this.dotsPool) { if (this.dotsLayer.hasLayer(dot)) this.dotsLayer.removeLayer(dot); }
+      return;
+    }
 
     // Outer two zoom levels: only Top-1 by score
     if (z <= baseMinZoom + 1) {
@@ -564,6 +589,12 @@ function buildLegendOnAdd() {
           Alles
         </label>
       </div>
+      <div class="legend-top10">
+        <label for="legend-top10">
+          <input id="legend-top10" type="checkbox" data-top10-only ${showOnlyTop10 ? 'checked' : ''}>
+          Nur Top 10
+        </label>
+      </div>
       <ul class="legend-list">
         ${listItemsHtml}
       </ul>
@@ -584,6 +615,7 @@ function buildLegendOnAdd() {
     header.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); } });
 
     const allCb = div.querySelector('input[data-legend-all]');
+    const top10Cb = div.querySelector('input[data-top10-only]');
     const itemCbs = Array.from(div.querySelectorAll('input[data-emoji]'));
 
     function syncMaster() {
@@ -602,6 +634,12 @@ function buildLegendOnAdd() {
       });
       syncMaster();
     });
+
+    if (top10Cb) {
+      top10Cb.addEventListener('change', () => {
+        setTop10Only(top10Cb.checked);
+      });
+    }
 
     itemCbs.forEach((cb) => {
       cb.addEventListener('change', () => {
@@ -660,6 +698,12 @@ function renderMobileOverlayContent(container) {
               Alles
             </label>
           </div>
+          <div class="legend-top10 legend-top10--mobile">
+            <label>
+              <input type="checkbox" data-top10-only ${showOnlyTop10 ? 'checked' : ''}>
+              Nur Top 10
+            </label>
+          </div>
           <div class="legend-search">
             <input type="search" placeholder="Kategorien suchen…" aria-label="Kategorien suchen" />
           </div>
@@ -677,6 +721,7 @@ function renderMobileOverlayContent(container) {
   const list = overlay.querySelector('.legend-list');
   const search = overlay.querySelector('.legend-search input');
   const allCb = overlay.querySelector('input[data-legend-all]');
+  const top10Cb = overlay.querySelector('input[data-top10-only]');
   const itemCbs = Array.from(overlay.querySelectorAll('input[data-emoji]'));
 
   function open() {
@@ -711,6 +756,12 @@ function renderMobileOverlayContent(container) {
     });
     syncMaster();
   });
+
+  if (top10Cb) {
+    top10Cb.addEventListener('change', () => {
+      setTop10Only(top10Cb.checked);
+    });
+  }
 
   itemCbs.forEach((cb) => {
     cb.addEventListener('change', () => {
@@ -776,6 +827,12 @@ window.addEventListener('resize', () => {
 function setEmojiVisibility(emoji, show) {
   emojiVisibility.set(emoji, !!show);
   try { persistEmojiVisibility(); } catch {}
+  if (lodLayer) lodLayer.update();
+}
+
+function setTop10Only(val) { // NEW: toggle handler
+  showOnlyTop10 = !!val;
+  try { localStorage.setItem('showOnlyTop10', showOnlyTop10 ? '1' : '0'); } catch {}
   if (lodLayer) lodLayer.update();
 }
 
