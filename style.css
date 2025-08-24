@@ -53,6 +53,7 @@ body { font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sa
 .leaflet-popup-content p { margin: 0; font-size: 13px; color: var(--muted); }
 .leaflet-popup-content-wrapper { background: var(--panel); color: var(--text); border: 1px solid rgba(148,163,184,0.2); box-shadow: var(--shadow); }
 .leaflet-popup-tip { background: var(--panel); border: 1px solid rgba(148,163,184,0.2); }
+.leaflet-popup-content a { color: var(--primary); text-decoration: underline; }
 
 /* Legende – kompakt, modern */
 .legend-control {

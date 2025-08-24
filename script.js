@@ -106,10 +106,24 @@ if (L.Control.geocoder) {
 // Marker-Layer nach Emoji-Kategorie sammeln, aber global clustern (kategorienunabhängig)
 const globalCluster = L.markerClusterGroup({
   chunkedLoading: true,
-  maxClusterRadius: (zoom) => (zoom < 7 ? 100 : zoom < 10 ? 80 : zoom < 13 ? 60 : 40),
-  disableClusteringAtZoom: 15,
+  chunkInterval: 150,
+  chunkDelay: 25,
+  removeOutsideVisibleBounds: true,
+  // früheres Auflösen: Radius schrumpft mit Zoom
+  maxClusterRadius: (z) => {
+    if (z <= 5) return 120;
+    if (z <= 7) return 95;
+    if (z <= 9) return 70;
+    if (z <= 10) return 45;
+    if (z <= 11) return 28;
+    return 18; // ab ~12 fast alles getrennt
+  },
+  disableClusteringAtZoom: 12,      // spätestens hier vollständig getrennt
   showCoverageOnHover: false,
+  zoomToBoundsOnClick: false,       // eigenes Klickverhalten (siehe unten)
   spiderfyOnEveryZoom: false,
+  spiderfyOnMaxZoom: true,
+  spiderfyDistanceMultiplier: 1.25,
   iconCreateFunction: (cluster) => {
     const count = cluster.getChildCount();
     return L.divIcon({
@@ -238,6 +252,50 @@ function getEmojiForAttraction(a) {
   return '📍'; // Fallback
 }
 
+// ---- Links in Popups: Mapping + Helpers ----
+// Optional: Externes Mapping per <script> vor dieser Datei: window.attractionLinks = { 'Name': 'https://…' }
+const attractionLinks = (window.attractionLinks || {});
+
+function isValidHttpUrl(url) {
+  try {
+    const u = new URL(url);
+    return u.protocol === 'http:' || u.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+function escHtml(str) {
+  return String(str ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+function getAttractionUrl(a) {
+  // 1) Direkter Link am Datensatz
+  if (a.url && isValidHttpUrl(a.url)) return a.url;
+  // 2) Mapping über exakten Namen
+  const byName = attractionLinks[a.name];
+  if (byName && isValidHttpUrl(byName)) return byName;
+  return null;
+}
+function buildPopupContent(a) {
+  const name = escHtml(a.name);
+  const type = escHtml(a.type);
+  const city = escHtml(a.city);
+  const desc = escHtml(a.desc);
+  const url = getAttractionUrl(a);
+  const nameHtml = url
+    ? `<a href="${escHtml(url)}" target="_blank" rel="noopener noreferrer">${name}</a>`
+    : name;
+  return `
+      <h3>${nameHtml}</h3>
+      <p>${type} · ${city}</p>
+      ${desc ? `<p>${desc}</p>` : ''}
+    `;
+}
+
 // Marker hinzufügen
 function addAttractionMarkers(list) {
   list.forEach((a) => {
@@ -245,11 +303,7 @@ function addAttractionMarkers(list) {
     const marker = L.marker([a.lat, a.lng], {
       icon: emojiIcon(emj, a.name)
     });
-    const popupHtml = `
-      <h3>${a.name}</h3>
-      <p>${a.type} · ${a.city}</p>
-      <p>${a.desc}</p>
-    `;
+    const popupHtml = buildPopupContent(a);
     marker.bindPopup(popupHtml, { closeButton: true });
     // Marker pro Emoji sammeln und dem globalen Cluster hinzufügen
     presentEmojis.add(emj);
@@ -387,4 +441,18 @@ window.addEventListener('resize', () => {
     legendControl.addTo(map);
     wasMobile = nowMobile;
   }
+});
+
+// Cluster-Klick: bei "relativ nah" spiderfy statt weiter stark zu zoomen
+globalCluster.on('clusterclick', (e) => {
+  const z = map.getZoom();
+  const n = e.layer.getChildCount();
+
+  // Wenn schon nah genug oder der Cluster klein ist -> spiderfy
+  if (z >= 10 || n <= 8) {
+    e.layer.spiderfy();
+    return;
+  }
+  // sonst sanft näher heran, nicht bis Maximum
+  map.flyTo(e.latlng, Math.min(z + 1, 12), { duration: 0.25 });
 });
