@@ -383,9 +383,14 @@ class LODGridLayer {
   addTo() { this.layer.addTo(this.map); this.dotsLayer.addTo(this.map); this.canvas.addTo(this.map); this.update(); return this; }
   remove() { this.map.off('moveend zoomend resize', this._onUpdate); this.layer.remove(); this.dotsLayer.remove(); if (this.canvas) this.map.removeLayer(this.canvas); }
   ensureMarker(a) {
-    if (this.pool.has(a.name)) return this.pool.get(a.name);
-    const isTop = topAttractions.has(a.name);
-    const m = L.marker([a.lat, a.lng], { icon: emojiIcon(a.emoji, a.name, isTop) });
+    const highlight = topAttractions.has(a.name) && showTop10; // highlight only when enabled
+    if (this.pool.has(a.name)) {
+      const m = this.pool.get(a.name);
+      // Always refresh icon to reflect current highlight state
+      m.setIcon(emojiIcon(a.emoji, a.name, highlight));
+      return m;
+    }
+    const m = L.marker([a.lat, a.lng], { icon: emojiIcon(a.emoji, a.name, highlight) });
     m.bindPopup(buildPopupContent(a), { closeButton: true });
     // Zoom to marker when clicked
     m.on('click', () => {
@@ -433,7 +438,7 @@ class LODGridLayer {
     const pad = 80;
     const emojiOn = (e) => (emojiVisibility.get(e) !== false);
     const baseMinZoom = (typeof this.map.getMinZoom === 'function') ? (this.map.getMinZoom() ?? 2) : 2;
-    const passesFilters = (a) => emojiOn(a.emoji) && (showTop10 || !topAttractions.has(a.name)); // NEW
+    const passesFilters = (a) => emojiOn(a.emoji) || (showTop10 && topAttractions.has(a.name)); // Top-10 override when toggle is ON
 
     // Outer two zoom levels: only Top-1 by score among filtered
     if (z <= baseMinZoom + 1) {
@@ -501,14 +506,13 @@ class LODGridLayer {
       return;
     }
 
-    // Low/medium zoom: Top-10 always as markers (if enabled), rest score-based
+    // Low/medium zoom: Top-10 by score always as markers; rest score-based
     const bounds = this.map.getPixelBounds();
     const min = bounds.min.subtract([pad, pad]);
     const max = bounds.max.add([pad, pad]);
     const keepMarkers = new Set();
     const keepDots = new Set();
 
-    // Precompute top-10 by score
     const filteredAll = this.data.filter(passesFilters);
     const top10ByScore = getTopNByScore(filteredAll, 10).map(a => a.name);
 
@@ -516,7 +520,7 @@ class LODGridLayer {
       if (!passesFilters(a)) continue;
       const pt = this.map.project([a.lat, a.lng], z);
       if (pt.x < min.x || pt.y < min.y || pt.x > max.x || pt.y > max.y) continue;
-      if (showTop10 && top10ByScore.includes(a.name)) {
+      if (top10ByScore.includes(a.name)) {
         const mk = this.ensureMarker(a);
         if (!this.layer.hasLayer(mk)) this.layer.addLayer(mk);
         keepMarkers.add(a.name);
@@ -618,8 +622,7 @@ function buildLegendOnAdd() {
         const emoji = cb.getAttribute('data-emoji');
         setEmojiVisibility(emoji, checked);
       });
-      // Also toggle Top-10 like other filters
-      if (top10Cb) { top10Cb.checked = checked; setTop10Visible(checked); }
+      // Do not affect Top-10 highlight when toggling "Alles"
       syncMaster();
     });
 
@@ -742,7 +745,7 @@ function renderMobileOverlayContent(container) {
       const emoji = cb.getAttribute('data-emoji');
       setEmojiVisibility(emoji, checked);
     });
-    if (top10Cb) { top10Cb.checked = checked; setTop10Visible(checked); }
+    // Do not auto-toggle Top-10 highlight when toggling "Alles"
     syncMaster();
   });
 
@@ -819,7 +822,7 @@ function setEmojiVisibility(emoji, show) {
   if (lodLayer) lodLayer.update();
 }
 
-function setTop10Visible(val) { // NEW: toggle handler for Top-10 as filter
+function setTop10Visible(val) { // controls highlight only
   showTop10 = !!val;
   try { localStorage.setItem('showTop10', showTop10 ? '1' : '0'); } catch {}
   if (lodLayer) lodLayer.update();
