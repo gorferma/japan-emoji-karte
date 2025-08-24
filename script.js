@@ -203,6 +203,21 @@ const CATEGORY_LABELS = {
 };
 const CATEGORY_ORDER = ['🗻','⛩️','🛕','🏯','🗼','🚦','🕊️','🍜','🎮','🌸','🏞️','💧','♨️','🌉','🏝️','🐈','🐠','🏛️','🎢','🎆','🥾','🏘️','📍'];
 
+// Kuratierte Top-10 mit festgelegter Reihenfolge (höchste Priorität)
+const CURATED_TOP10 = [
+  'Fuji-san (Mount Fuji)',
+  'Fushimi Inari-taisha',
+  'Itsukushima-Schrein (Miyajima)',
+  'Himeji-jo (Burg Himeji)',
+  'Kinkaku-ji (Goldener Pavillon)',
+  'Kiyomizu-dera',
+  'Nara-Park & Todai-ji',
+  'Nikko Toshogu',
+  'Friedensdenkmal Hiroshima',
+  'Shibuya Crossing'
+];
+const CURATED_SCORES = new Map(CURATED_TOP10.map((name, i) => [name, 100 - i * 2]));
+
 function getEmojiForAttraction(a) {
   if (a.emoji && String(a.emoji).trim()) return a.emoji;
   const name = (a.name || '').toLowerCase();
@@ -236,6 +251,9 @@ function buildPopupContent(a) {
 // ---- Importance-basierte LOD-Logik (anstelle von Zahlen-Clustering) ----
 function computeImportance(a) {
   let s = 10;
+  // Curated Top-10 erhalten vordefinierte, absteigende Scores (100, 98, ...)
+  const curated = CURATED_SCORES.get(a.name);
+  if (typeof curated === 'number') s = curated;
   const t = (a.type || '').toLowerCase();
   const boost = (v) => { s = Math.max(s, v); };
   if (t.includes('unesco')) boost(90);
@@ -296,9 +314,14 @@ function initAttractionsMeta(list) {
   });
   // Standard: alle sichtbar
   presentEmojis.forEach(e => emojiVisibility.set(e, true));
-  // Top 10 nach Wichtigkeit markieren (mit manuellen Overrides berücksichtigt)
-  const sorted = [...attractionsAug].sort((a, b) => b._score - a._score);
-  topAttractions = new Set(sorted.slice(0, 10).map(a => a.name));
+  // Top 10 markieren: bevorzugt kuratierte Liste, sonst Score-Top10
+  const curatedExisting = CURATED_TOP10.filter(name => attractionsAug.some(a => a.name === name));
+  if (curatedExisting.length >= 1) {
+    topAttractions = new Set(curatedExisting.slice(0, 10));
+  } else {
+    const sorted = [...attractionsAug].sort((a, b) => b._score - a._score);
+    topAttractions = new Set(sorted.slice(0, 10).map(a => a.name));
+  }
 }
 
 class LODGridLayer {
