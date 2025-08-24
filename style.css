@@ -51,3 +51,41 @@ html, body {
   font-size: 14px;
   color: #374151;
 }
+
+/* Legende */
+.legend-control {
+  background: #fff;
+  border-radius: 4px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+  min-width: 160px;
+  max-width: 240px;
+}
+.legend-control .legend-header {
+  font-weight: 600;
+  padding: 6px 8px;
+  border-bottom: 1px solid #e5e7eb;
+  cursor: pointer;
+}
+.legend-control .legend-list {
+  list-style: none;
+  margin: 0;
+  padding: 6px 8px;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-column-gap: 8px;
+  grid-row-gap: 6px;
+}
+.legend-control .legend-list li {
+  display: contents;
+}
+.legend-control .legend-list .emoji {
+  font-size: 18px;
+  line-height: 1.2;
+}
+
+@media (max-width: 480px) {
+  .legend-control {
+    min-width: 140px;
+    max-width: 200px;
+  }
+}
