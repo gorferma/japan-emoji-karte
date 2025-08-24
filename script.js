@@ -129,7 +129,7 @@ L.control.scale({ metric: true, imperial: false }).addTo(map);
 // Entferne die visuelle Maskierung außerhalb Japans
 // (vorheriges L.polygon mit world/japanRect wurde entfernt)
 
-// Legende (kleine Box mit Emoji-Erklärungen) – mobil unten rechts, sonst oben rechts
+// Legende (kleine Box mit Emoji-Erklärungen) – oben rechts; mobil standardmäßig geschlossen
 function buildLegendOnAdd() {
   return function () {
     const div = L.DomUtil.create('div', 'legend-control leaflet-bar');
@@ -166,6 +166,17 @@ function buildLegendOnAdd() {
     // Einklappen/aufklappen per Klick oder Tastatur
     const header = div.querySelector('.legend-header');
     const list = div.querySelector('.legend-list');
+
+    // Initialzustand je nach Gerät: mobil zu, Desktop offen
+    const startCollapsed = isMobile();
+    if (startCollapsed) {
+      list.style.display = 'none';
+      header.setAttribute('aria-expanded', 'false');
+    } else {
+      list.style.display = '';
+      header.setAttribute('aria-expanded', 'true');
+    }
+
     function toggle() {
       const isHidden = list.style.display === 'none';
       list.style.display = isHidden ? '' : 'none';
@@ -190,15 +201,20 @@ function createLegendControl(position) {
 }
 
 const isMobile = () => window.matchMedia('(max-width: 600px)').matches;
-let legendControl = createLegendControl(isMobile() ? 'bottomright' : 'topright');
-legendControl.addTo(map);
 
-// Bei Größenänderung Position dynamisch wechseln
+// Legende immer oben rechts hinzufügen; Mobil initial geschlossen (in onAdd umgesetzt)
+let legendControl = createLegendControl('topright');
+legendControl.addTo(map);
+let wasMobile = isMobile();
+
+// Bei Größenänderung: Wenn zwischen Mobil/Desktop gewechselt wird, Legende neu aufbauen,
+// um den gewünschten Startzustand (geschlossen/offen) zu übernehmen
 window.addEventListener('resize', () => {
-  const desired = isMobile() ? 'bottomright' : 'topright';
-  if (typeof legendControl.getPosition === 'function' && legendControl.getPosition() !== desired) {
+  const nowMobile = isMobile();
+  if (nowMobile !== wasMobile) {
     map.removeControl(legendControl);
-    legendControl = createLegendControl(desired);
+    legendControl = createLegendControl('topright');
     legendControl.addTo(map);
+    wasMobile = nowMobile;
   }
 });
