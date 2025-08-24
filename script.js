@@ -48,38 +48,43 @@ if (L.Control.geocoder) {
     .addTo(map);
 }
 
-// Marker-Layer nach Emoji-Kategorie (statt ein gemeinsames LayerGroup)
-const emojiLayers = {}; // { '🗻': L.markerClusterGroup, ... }
+// Marker-Layer nach Emoji-Kategorie sammeln, aber global clustern (kategorienunabhängig)
+const globalCluster = L.markerClusterGroup({
+  chunkedLoading: true,
+  maxClusterRadius: (zoom) => (zoom < 7 ? 100 : zoom < 10 ? 80 : zoom < 13 ? 60 : 40),
+  disableClusteringAtZoom: 15,
+  showCoverageOnHover: false,
+  spiderfyOnEveryZoom: false,
+  iconCreateFunction: (cluster) => {
+    const count = cluster.getChildCount();
+    return L.divIcon({
+      className: 'emoji-cluster',
+      html: `<div class="inner"><span class="cnt">${count}</span></div>`,
+      iconSize: null
+    });
+  }
+});
+map.addLayer(globalCluster);
+
+// Marker-Container pro Emoji (für Legenden-Checkboxen)
+const emojiLayers = {}; // { '🗻': L.layerGroup (nur Container), ... }
 const presentEmojis = new Set();
 function ensureEmojiLayer(emoji) {
   if (!emojiLayers[emoji]) {
-    // Pro Kategorie ein Cluster-Layer mit eigenem Emoji-Cluster-Icon
-    emojiLayers[emoji] = L.markerClusterGroup({
-      chunkedLoading: true,
-      maxClusterRadius: 52,
-      disableClusteringAtZoom: 12,
-      showCoverageOnHover: false,
-      spiderfyOnEveryZoom: false,
-      iconCreateFunction: (cluster) => {
-        const count = cluster.getChildCount();
-        return L.divIcon({
-          className: 'emoji-cluster',
-          html: `<div class="inner"><span class="em">${emoji}</span><span class="cnt">${count}</span></div>`,
-          iconSize: null
-        });
-      }
-    });
-    map.addLayer(emojiLayers[emoji]);
+    // Nur Container pro Kategorie, nicht direkt der Karte hinzufügen
+    emojiLayers[emoji] = L.layerGroup();
   }
   return emojiLayers[emoji];
 }
 function setEmojiVisibility(emoji, show) {
-  const layer = emojiLayers[emoji];
-  if (!layer) return;
+  const group = emojiLayers[emoji];
+  if (!group) return;
+  const layers = [];
+  group.eachLayer((l) => layers.push(l));
   if (show) {
-    if (!map.hasLayer(layer)) map.addLayer(layer);
+    globalCluster.addLayers(layers);
   } else {
-    if (map.hasLayer(layer)) map.removeLayer(layer);
+    globalCluster.removeLayers(layers);
   }
 }
 
@@ -191,9 +196,10 @@ function addAttractionMarkers(list) {
       <p>${a.desc}</p>
     `;
     marker.bindPopup(popupHtml, { closeButton: true });
-    // Marker in LayerGroup nach Emoji
+    // Marker pro Emoji sammeln und dem globalen Cluster hinzufügen
     presentEmojis.add(emj);
     ensureEmojiLayer(emj).addLayer(marker);
+    globalCluster.addLayer(marker);
   });
 }
 
