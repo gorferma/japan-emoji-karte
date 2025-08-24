@@ -21,6 +21,61 @@ map.fitBounds(japanBounds, { padding: [20, 20] });
 // Erlaube wieder freies Zoomen/Schwenken (keine MaxBounds, kleines minZoom)
 map.setMinZoom(2);
 
+// Deep-Linking: Hash lesen (z, lat, lng) und setzen; Hash bei Bewegungen aktualisieren
+(function initDeepLinking() {
+  try {
+    const raw = location.hash ? location.hash.substring(1) : '';
+    const params = new URLSearchParams(raw);
+    const z = params.get('z');
+    const lat = params.get('lat');
+    const lng = params.get('lng');
+    if (z && lat && lng && !Number.isNaN(+z) && !Number.isNaN(+lat) && !Number.isNaN(+lng)) {
+      map.setView([+lat, +lng], +z);
+    }
+  } catch {}
+
+  const writeHash = () => {
+    const c = map.getCenter();
+    const z = map.getZoom();
+    const params = new URLSearchParams({ z: String(z), lat: c.lat.toFixed(5), lng: c.lng.toFixed(5) });
+    const newHash = `#${params.toString()}`;
+    if (location.hash !== newHash) history.replaceState(null, '', newHash);
+  };
+  map.on('moveend', writeHash);
+})();
+
+// Header-Buttons: Auf Japan zoomen & Teilen
+window.addEventListener('DOMContentLoaded', () => {
+  const btnReset = document.getElementById('btn-reset');
+  if (btnReset) {
+    btnReset.addEventListener('click', () => {
+      map.fitBounds(japanBounds, { padding: [20, 20] });
+    });
+  }
+  const btnShare = document.getElementById('btn-share');
+  if (btnShare) {
+    btnShare.addEventListener('click', async () => {
+      const shareUrl = location.href;
+      try {
+        if (navigator.share) {
+          await navigator.share({ title: document.title, text: 'Japan Emoji-Karte', url: shareUrl });
+        } else if (navigator.clipboard && window.isSecureContext) {
+          await navigator.clipboard.writeText(shareUrl);
+          alert('Link kopiert');
+        } else {
+          // Fallback
+          const ta = document.createElement('textarea');
+          ta.value = shareUrl; document.body.appendChild(ta); ta.select();
+          document.execCommand('copy'); document.body.removeChild(ta);
+          alert('Link kopiert');
+        }
+      } catch (e) {
+        console.warn('Share fehlgeschlagen', e);
+      }
+    });
+  }
+});
+
 // Geocoder (nur Japan)
 if (L.Control.geocoder) {
   L.Control.geocoder({
