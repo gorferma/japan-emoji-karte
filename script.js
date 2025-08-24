@@ -63,11 +63,53 @@ function emojiIcon(emoji, label) {
   });
 }
 
+// Emoji-Zuordnung nach Kategorie/Schlüsselwörtern
+const EMOJI_KEYWORDS = [
+  { k: ['berg','vulkan','fuji','mt '], e: '🗻' },
+  { k: ['schrein','jingu','shrine','toshogu','hachimangu','inari'], e: '⛩️' },
+  { k: ['tempel','dera','ji '], e: '🛕' },
+  { k: ['burg','schloss','jo '], e: '🏯' },
+  { k: ['turm','tower','skytree'], e: '🗼' },
+  { k: ['kreuzung','crossing'], e: '🚦' },
+  { k: ['gedenk','memorial','friedens'], e: '🕊️' },
+  { k: ['viertel','district','streetfood','dotonbori','chinatown'], e: '🍜' },
+  { k: ['elektronik','akihabara','anime','popkultur'], e: '🎮' },
+  { k: ['kirsch','sakura','blüte','blossom','hanami','hirosaki'], e: '🌸' },
+  { k: ['nationalpark','shirakami','shiretoko','daisetsuzan'], e: '🏞️' },
+  { k: ['schlucht','gorge','oirase','takachiho'], e: '🏞️' },
+  { k: ['wasserfall','falls','kegon','nachi'], e: '💦' },
+  { k: ['see ',' lake','-see','chuzenji','tazawa'], e: '🏞️' },
+  { k: ['bucht','bai','bay','matsushima','kabira'], e: '🌊' },
+  { k: ['küste','kueste','strand','beach','insel','island','jima','jima)','jima '], e: '🏝️' },
+  { k: ['brücke','bruecke','bridge','kintaikyo'], e: '🌉' },
+  { k: ['garten','garden','kenrokuen','korakuen','adachi'], e: '🏛️' },
+  { k: ['museum','teamlab','ghibli'], e: '🏛️' },
+  { k: ['onsen','thermal','beppu','jigokudani (onsen)'], e: '♨️' },
+  { k: ['affen','schneeaffen','monkey'], e: '🐒' },
+  { k: ['aquarium','churaumi'], e: '🐠' },
+  { k: ['bambus','bamboo','arashiyama'], e: '🎋' },
+  { k: ['pilger','koyasan','kumano','88','henro'], e: '🥾' },
+  { k: ['festival','matsuri','feuerwerk','nebuta','tanabata','gion'], e: '🎆' },
+  { k: ['freizeitpark','disney','usj','fuji-q','legoland','huis ten bosch','ghibli park'], e: '🎢' },
+  { k: ['altstadt','old town','bikan','takayama','kawagoe','kakunodate'], e: '🏘️' }
+];
+
+function getEmojiForAttraction(a) {
+  if (a.emoji && String(a.emoji).trim()) return a.emoji;
+  const name = (a.name || '').toLowerCase();
+  const type = (a.type || '').toLowerCase();
+  const hay = `${type} ${name}`;
+  for (const { k, e } of EMOJI_KEYWORDS) {
+    if (k.some((kw) => hay.includes(kw))) return e;
+  }
+  return '📍'; // Fallback
+}
+
 // Marker hinzufügen
 function addAttractionMarkers(list) {
   list.forEach((a) => {
     const marker = L.marker([a.lat, a.lng], {
-      icon: emojiIcon(a.emoji, a.name)
+      icon: emojiIcon(getEmojiForAttraction(a), a.name)
     });
     const popupHtml = `
       <h3>${a.name}</h3>
@@ -94,17 +136,27 @@ function buildLegendOnAdd() {
     div.innerHTML = `
       <div class="legend-header" role="button" aria-expanded="true" tabindex="0">Legende</div>
       <ul class="legend-list">
-        <li><span class="emoji">🗻</span>Berg</li>
+        <li><span class="emoji">🗻</span>Berg/Vulkan</li>
         <li><span class="emoji">⛩️</span>Schrein</li>
         <li><span class="emoji">🛕</span>Tempel</li>
-        <li><span class="emoji">🏯</span>Burg</li>
-        <li><span class="emoji">🎋</span>Natur</li>
-        <li><span class="emoji">🦌</span>Park</li>
+        <li><span class="emoji">🏯</span>Burg/Schloss</li>
         <li><span class="emoji">🗼</span>Turm</li>
-        <li><span class="emoji">🚦</span>Kreuzung</li>
+        <li><span class="emoji">🚦</span>Kreuzung/Wahrzeichen</li>
         <li><span class="emoji">🕊️</span>Gedenkstätte</li>
-        <li><span class="emoji">🍜</span>Stadtviertel (Essen)</li>
-        <li><span class="emoji">🎮</span>Stadtviertel (Elektronik)</li>
+        <li><span class="emoji">🍜</span>Food-Viertel/Markt</li>
+        <li><span class="emoji">🎮</span>Elektronik/Popkultur</li>
+        <li><span class="emoji">🌸</span>Kirschen/Blüte</li>
+        <li><span class="emoji">🏞️</span>Nationalpark/Schlucht</li>
+        <li><span class="emoji">💦</span>Wasserfall</li>
+        <li><span class="emoji">♨️</span>Onsen</li>
+        <li><span class="emoji">🌉</span>Brücke</li>
+        <li><span class="emoji">🏝️</span>Insel/Strand</li>
+        <li><span class="emoji">🐠</span>Aquarium</li>
+        <li><span class="emoji">🏛️</span>Museum/Garten</li>
+        <li><span class="emoji">🎢</span>Freizeitpark</li>
+        <li><span class="emoji">🎆</span>Festival</li>
+        <li><span class="emoji">🥾</span>Pilgerweg/Wanderung</li>
+        <li><span class="emoji">🏘️</span>Altstadt/Tradition</li>
       </ul>
     `;
     // Interaktionen innerhalb der Legende sollen die Karte nicht bewegen
