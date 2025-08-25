@@ -44,11 +44,11 @@ window.attractionLinks = {
   "Yokohama Chinatown": "https://en.wikipedia.org/wiki/Yokohama_Chinatown",
   "Cup Noodles Museum": "https://www.cupnoodles-museum.jp/en/yokohama/",
   "Großer Buddha von Kamakura": "https://www.google.com/search?q=Gro%C3%9Fer%20Buddha%20von%20Kamakura",
-  "Tsurugaoka Hachimangu": "https://de.wikipedia.org/wiki/Tsurugaoka_Hachiman-g%C5%ū",
+  "Tsurugaoka Hachimangu": "https://www.google.com/search?q=Tsurugaoka%20Hachimangu",
   "Enoshima": "https://en.wikipedia.org/wiki/Enoshima",
-  "Nikko Toshogu": "https://de.wikipedia.org/wiki/T%C5%8Dsh%C5%8D-g%C5%ū",
+  "Nikko Toshogu": "https://www.google.com/search?q=Nikko%20Toshogu",
   "Kegon-Wasserfall": "https://www.google.com/search?q=Kegon-Wasserfall",
-  "Chuzenji-See": "https://de.wikipedia.org/wiki/Ch%C5%ūzenji-See",
+  "Chuzenji-See": "https://www.google.com/search?q=Chuzenji-See",
   "Hakone Ashi-See": "https://de.wikipedia.org/wiki/Ashi-See",
   "Owakudani": "https://en.wikipedia.org/wiki/%C5%8Cwakudani",
   "Hakone Open-Air Museum": "https://www.hakone-oam.or.jp/en/",
@@ -74,7 +74,7 @@ window.attractionLinks = {
   "Nagoya-jo (Burg)": "https://de.wikipedia.org/wiki/Burg_Nagoya",
   "Osu Shopping District": "https://en.wikipedia.org/wiki/%C5%8Csu",
   "Ghibli Park": "https://ghibli-park.jp/en/",
-  "Ise-jingu": "https://de.wikipedia.org/wiki/Ise-jing%C5%ū",
+  "Ise-jingu": "https://www.google.com/search?q=Ise-jingu",
 
   // Kansai
   "Fushimi Inari-taisha": "https://www.google.com/search?q=Fushimi%20Inari-taisha",
@@ -121,7 +121,7 @@ window.attractionLinks = {
 
   // Kyushu
   "Ohori-Park": "https://en.wikipedia.org/wiki/%C5%8Chori_Park",
-  "Dazaifu Tenmangu": "https://de.wikipedia.org/wiki/Dazaifu_Tenmang%C5%ū",
+  "Dazaifu Tenmangu": "https://www.google.com/search?q=Dazaifu%20Tenmangu",
   "Ainoshima (Katzeninsel)": "https://www.google.com/search?q=Ainoshima%20(Katzeninsel)",
   "Nagasaki Friedenspark": "https://de.wikipedia.org/wiki/Friedenspark_(Nagasaki)",
   "Glover Garden": "https://en.wikipedia.org/wiki/Glover_Garden",

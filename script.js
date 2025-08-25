@@ -122,7 +122,8 @@ if (L.Control.geocoder) {
         viewbox: "122.93457,24.396308,153.986672,45.551483",
         bounded: 1, // harte Begrenzung auf die Viewbox
         addressdetails: 1,
-        limit: 8
+        limit: 8,
+        'accept-language': 'de'
       }
     })
   })
