@@ -96,6 +96,10 @@ window.addEventListener('DOMContentLoaded', () => {
       const next = light ? 'dark' : 'light';
       apply(next);
       try { localStorage.setItem('theme', next); } catch {}
+      // Re-parse Twemoji on theme change
+      if (window.twemoji && typeof window.twemoji.parse === 'function') {
+        try { window.twemoji.parse(document.body, { folder: 'svg', ext: '.svg' }); } catch {}
+      }
     });
   }
 
@@ -139,14 +143,24 @@ if (L.Control.geocoder) {
 }
 
 // ---- Emoji- und Kategorie-Logik ----
-function emojiIcon(emoji, label, isTop = false) {
+function emojiIcon(emoji, label, extraClass = '', inlineStyle = '') {
   const safeLabel = (label || "").replace(/"/g, "&quot;");
+  const cls = `emoji-marker${extraClass ? ' ' + extraClass : ''}`;
+  const styleAttr = inlineStyle ? ` style="${inlineStyle}"` : '';
   return L.divIcon({
     className: "",
-    html: `<div class="emoji-marker${isTop ? ' emoji-marker--top' : ''}" aria-label="${safeLabel}" title="${safeLabel}">${emoji}</div>`,
+    html: `<div class="${cls}" aria-label="${safeLabel}" title="${safeLabel}"${styleAttr}><span class="emoji-bubble"><span class="emoji-inner">${emoji}</span></span></div>`,
     iconSize: null,
     iconAnchor: [0, 16]
   });
+}
+
+function getRankClass(name) {
+  if (!showTop10) return '';
+  const idx = CURATED_TOP10.indexOf(name);
+  if (idx === 0) return 'emoji-marker--top';
+  if (idx >= 1 && idx <= 9) return 'emoji-marker--rank-gold';
+  return '';
 }
 
 const EMOJI_KEYWORDS = [
@@ -204,7 +218,7 @@ const CATEGORY_LABELS = {
   '🏘️': 'Altstadt/Tradition',
   '📍': 'Allgemein',
   '❄️': 'Schneefestival',
-  '🚤': 'Kanal/Boot',
+  '🛤️': 'Kanal/Boot',
   '🌻': 'Blumenfelder',
   '🛶': 'Boot/Kanu',
   '🐧': 'Zoo/Pinguine',
@@ -305,7 +319,7 @@ let attractionsAug = [];
 let presentEmojis = new Set();
 let emojiVisibility = new Map();
 let lodLayer = null;
-let showTop10 = true; // NEW: treat Top-10 like a normal filter (visible by default)
+let showTop10 = true; // treat Top-10 like world map highlight toggle
 
 function initAttractionsMeta(list) {
   // Build augmented list with guaranteed emoji and importance score
@@ -330,7 +344,7 @@ function initAttractionsMeta(list) {
       }
     }
   } catch {}
-  // NEW: restore Top-10 visibility
+  // restore Top-10 visibility
   try {
     const t10 = localStorage.getItem('showTop10');
     showTop10 = (t10 === null) ? true : (t10 === '1' || t10 === 'true');
@@ -346,9 +360,7 @@ function persistEmojiVisibility() {
 }
 
 function cellSizeForZoom(z) {
-  // Return 0 when we want full marker mode; otherwise an arbitrary positive value
   if (z >= 10) return 0; // markers appear one zoom earlier (>=10)
-  // Coarser cells at low zoom (not used directly for picking here, only to switch modes)
   if (z <= 3) return 256;
   if (z <= 5) return 192;
   if (z <= 7) return 128;
@@ -356,7 +368,6 @@ function cellSizeForZoom(z) {
 }
 
 function zoomScoreThreshold(z) {
-  // Higher threshold at low zoom; decreases as you zoom in
   if (z <= 3) return 88;
   if (z <= 4) return 82;
   if (z <= 5) return 76;
@@ -366,14 +377,12 @@ function zoomScoreThreshold(z) {
   if (z <= 9) return 50;
   return 0; // full marker mode
 }
-// ===== End added helpers =====
 
 class LODGridLayer {
   constructor(map, data) {
     this.map = map;
     this.data = data;
     this.layer = L.layerGroup();
-    // Lightweight dots for non-selected POIs (Canvas renderer bound to dots pane)
     this.canvas = L.canvas({ padding: 0.5, pane: 'dots-pane' });
     this.dotsLayer = L.layerGroup();
     this.pool = new Map(); // name -> emoji marker
@@ -384,15 +393,15 @@ class LODGridLayer {
   addTo() { this.layer.addTo(this.map); this.dotsLayer.addTo(this.map); this.canvas.addTo(this.map); this.update(); return this; }
   remove() { this.map.off('moveend zoomend resize', this._onUpdate); this.layer.remove(); this.dotsLayer.remove(); if (this.canvas) this.map.removeLayer(this.canvas); }
   ensureMarker(a) {
-    const highlight = topAttractions.has(a.name) && showTop10; // highlight only when enabled
+    const extraCls = getRankClass(a.name);
     if (this.pool.has(a.name)) {
       const m = this.pool.get(a.name);
-      // Always refresh icon to reflect current highlight state
-      m.setIcon(emojiIcon(a.emoji, a.name, highlight));
+      // Update icon to reflect current rank styling
+      m.setIcon(emojiIcon(a.emoji, a.name, extraCls));
       return m;
     }
-    const m = L.marker([a.lat, a.lng], { icon: emojiIcon(a.emoji, a.name, highlight) });
-    m.bindPopup(buildPopupContent(a), { closeButton: true });
+    const m = L.marker([a.lat, a.lng], { icon: emojiIcon(a.emoji, a.name, extraCls) });
+    m.bindPopup(buildPopupContent(a), { closeButton: true, autoPan: false });
     // Zoom to marker when clicked
     m.on('click', () => {
       const current = this.map.getZoom();
@@ -418,7 +427,6 @@ class LODGridLayer {
         interactive: true,
         bubblingMouseEvents: true
       });
-      // Click to zoom towards this point
       mk.on('click', () => {
         const current = this.map.getZoom();
         const target = Math.max(10, current + 2);
@@ -439,7 +447,7 @@ class LODGridLayer {
     const pad = 80;
     const emojiOn = (e) => (emojiVisibility.get(e) !== false);
     const baseMinZoom = (typeof this.map.getMinZoom === 'function') ? (this.map.getMinZoom() ?? 2) : 2;
-    const passesFilters = (a) => emojiOn(a.emoji) || (showTop10 && topAttractions.has(a.name)); // Top-10 override when toggle is ON
+    const passesFilters = (a) => emojiOn(a.emoji) || (showTop10 && topAttractions.has(a.name));
 
     // Outer two zoom levels: only Top-1 by score among filtered
     if (z <= baseMinZoom + 1) {
@@ -456,6 +464,8 @@ class LODGridLayer {
       for (const [, dot] of this.dotsPool) {
         if (this.dotsLayer.hasLayer(dot)) this.dotsLayer.removeLayer(dot);
       }
+      // Twemoji parse after render
+      if (window.twemoji && typeof window.twemoji.parse === 'function') { try { window.twemoji.parse(document.body, { folder: 'svg', ext: '.svg' }); } catch {} }
       return;
     }
 
@@ -486,6 +496,7 @@ class LODGridLayer {
       for (const [name, dot] of this.dotsPool) {
         if (!keepDots.has(name) && this.dotsLayer.hasLayer(dot)) this.dotsLayer.removeLayer(dot);
       }
+      if (window.twemoji && typeof window.twemoji.parse === 'function') { try { window.twemoji.parse(document.body, { folder: 'svg', ext: '.svg' }); } catch {} }
       return;
     }
 
@@ -504,6 +515,7 @@ class LODGridLayer {
         if (!visible.has(name) && this.layer.hasLayer(mk)) this.layer.removeLayer(mk);
       }
       for (const [, dot] of this.dotsPool) { if (this.dotsLayer.hasLayer(dot)) this.dotsLayer.removeLayer(dot); }
+      if (window.twemoji && typeof window.twemoji.parse === 'function') { try { window.twemoji.parse(document.body, { folder: 'svg', ext: '.svg' }); } catch {} }
       return;
     }
 
@@ -542,6 +554,7 @@ class LODGridLayer {
     for (const [name, dot] of this.dotsPool) {
       if (!keepDots.has(name) && this.dotsLayer.hasLayer(dot)) this.dotsLayer.removeLayer(dot);
     }
+    if (window.twemoji && typeof window.twemoji.parse === 'function') { try { window.twemoji.parse(document.body, { folder: 'svg', ext: '.svg' }); } catch {} }
   }
 }
 
@@ -746,7 +759,6 @@ function renderMobileOverlayContent(container) {
       const emoji = cb.getAttribute('data-emoji');
       setEmojiVisibility(emoji, checked);
     });
-    // Do not auto-toggle Top-10 highlight when toggling "Alles"
     syncMaster();
   });
 
@@ -831,5 +843,10 @@ function setTop10Visible(val) { // controls highlight only
 
 // LOD-Layer erstellen und der Karte hinzufügen
 lodLayer = new LODGridLayer(map, attractionsAug).addTo();
+
+// Initial Twemoji parse
+if (window.twemoji && typeof window.twemoji.parse === 'function') {
+  try { window.twemoji.parse(document.body, { folder: 'svg', ext: '.svg' }); } catch {}
+}
 
 // Hinweis: bisheriges Marker-Clustering wurde zugunsten des LOD-Renderers entfernt.
