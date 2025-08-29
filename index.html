@@ -1,10 +1,10 @@
 <!doctype html>
-<html lang="de">
+<html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Japan Emoji-Karte – Sehenswürdigkeiten</title>
-    <meta name="description" content="Interaktive Japan-Karte mit Emoji-Markern für Sehenswürdigkeiten. Zoomen, pannen, filtern und teilen." />
+    <title>Japan Emoji Map – Attractions</title>
+    <meta name="description" content="Interactive Japan map with emoji markers for attractions. Zoom, pan, filter, and share." />
     <meta name="theme-color" content="#0ea5e9" />
 
     <!-- Leaflet CSS -->
@@ -29,17 +29,17 @@
   </head>
   <body>
     <header class="app-header" role="banner">
-      <button id="btn-filter" class="btn btn-hamburger" type="button" title="Filter & Kategorien" aria-label="Filter & Kategorien öffnen">
+      <button id="btn-filter" class="btn btn-hamburger" type="button" title="Filter & Categories" aria-label="Open filter & categories">
         <span></span><span></span><span></span>
       </button>
-      <div class="brand" aria-label="Japan Emoji Karte">🇯🇵 Japan Emoji-Karte</div>
-      <nav class="app-actions" aria-label="Seitentools">
-        <button id="btn-share" class="btn btn-primary" type="button" title="Seite teilen oder Link kopieren">Teilen</button>
-        <button id="btn-theme" class="btn" type="button" title="Hell/Dunkel umschalten" aria-label="Hell/Dunkel umschalten">🌗</button>
+      <div class="brand" aria-label="Japan Emoji Map">🇯🇵 Japan Emoji Map</div>
+      <nav class="app-actions" aria-label="Page tools">
+        <button id="btn-share" class="btn btn-primary" type="button" title="Share page or copy link">Share</button>
+        <button id="btn-theme" class="btn" type="button" title="Toggle light/dark mode" aria-label="Toggle light/dark mode">🌗</button>
       </nav>
     </header>
     <main id="main" role="main">
-      <div id="map" role="region" aria-label="Interaktive Karte von Japan"></div>
+      <div id="map" role="region" aria-label="Interactive map of Japan"></div>
     </main>
 
     <!-- Leaflet JS -->
@@ -51,7 +51,7 @@
     <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
     <!-- MarkerCluster JS -->
     <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
-    <!-- Twemoji: Emoji als SVG-Bilder für konsistente Darstellung -->
+    <!-- Twemoji: Emoji as SVG images for consistent display -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/twemoji.min.js" referrerpolicy="no-referrer"></script>
 
     <script src="./attraction-links.js?v=2025-08-25-1"></script>
