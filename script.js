@@ -200,6 +200,7 @@ const CATEGORY_LABELS = {
   '🏯': 'Castle',
   '🗼': 'Tower',
   '🚦': 'Crossing/Sight',
+  '🕊️': 'Peace Memorial',
   '🔊': 'Memorial',
   '🍜': 'Food District/Market',
   '🎮': 'Electronics/Pop Culture',
@@ -229,14 +230,19 @@ const CATEGORY_LABELS = {
   '🦌': 'Park/Deer',
   '🌋': 'Volcano',
   '🏜️': 'Sand Dunes',
-  '🏖️': 'Beach'
+  '🏖️': 'Beach',
+  // Added missing ones used in data
+  '🐒': 'Monkeys',
+  '🎋': 'Bamboo Grove',
+  '🚤': 'Canal/Boat',
+  '🌊': 'Bay/Coast/Sea'
 };
 const CATEGORY_ORDER = ['🗻','⛩️','🛕','🏯','🗼','🚦','🕊️','🍜','🎮','🌸','🏞️','💧','♨️','🌉','🏝️','🐈','🐠','🏛️','🎢','🎆','🥾','🏘️','📍'];
 
 // Curated Top-10 with fixed order (highest priority)
 const CURATED_TOP10 = [
   'Fuji-san (Mount Fuji)',
-  'Fushimi Inari-taisha',
+  'Fushimi Inari Taisha',
   'Itsukushima Shrine (Miyajima)',
   'Himeji-jo (Himeji Castle)',
   'Kinkaku-ji (Golden Pavilion)',
